@@ -43,6 +43,8 @@ docker compose up -d                 # lokal Oracle
 cd backend && ./mvnw spring-boot:run # backend
 cd backend && ./mvnw test            # backend testleri
 cd frontend && npm start             # frontend (http://localhost:4200)
-cd frontend && npm test              # frontend testleri
+cd frontend && npm test -- --watch=false  # frontend testleri (Vitest)
+cd frontend && npm run build         # frontend prod build
 ```
-(İskelet kurulunca bu komutlar güncel tutulmalı.)
+- Backend testleri Testcontainers kullanır; Docker açık olmalı.
+- Backend lokalde kök dizindeki `.env`'i okur (`spring.config.import`); frontend `/api` isteklerini `proxy.conf.json` ile 8080'e yönlendirir.
