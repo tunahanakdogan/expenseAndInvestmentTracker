@@ -1,0 +1,32 @@
+{
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "ponytail@ponytail": true
+  },
+  "env": {
+    "PONYTAIL_DEFAULT_MODE": "full"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(./mvnw test*)",
+      "Bash(./mvnw compile*)",
+      "Bash(npm test*)",
+      "Bash(npm run build*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)"
+    ],
+    "deny": [
+      "Read(./**/.env)",
+      "Read(./**/.env.*)",
+      "Bash(git push --force*)"
+    ]
+  }
+}
