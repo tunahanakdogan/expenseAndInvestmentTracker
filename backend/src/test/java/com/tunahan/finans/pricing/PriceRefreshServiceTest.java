@@ -168,6 +168,29 @@ class PriceRefreshServiceTest {
     }
 
     @Test
+    void invalidTrackedAssetsAreSkippedWithoutError() {
+        tracked(new TrackedAsset(null, "X"), new TrackedAsset(AssetType.BIST_STOCK, null),
+                new TrackedAsset(AssetType.BIST_STOCK, "  "), new TrackedAsset(AssetType.BIST_STOCK, "THYAO"));
+        when(yahoo.fetchPrices(any())).thenReturn(Map.of("THYAO", BigDecimal.ONE));
+
+        RefreshResult result = service.refreshPrices(Set.of(AssetType.BIST_STOCK));
+
+        verify(yahoo).fetchPrices(Set.of("THYAO"));
+        assertThat(result.updatedPrices()).isEqualTo(1);
+        assertThat(result.failed()).isEmpty();
+    }
+
+    @Test
+    void typeWithoutProviderIsReportedInFailed() {
+        service = new PriceRefreshService(List.of(yahoo), rateProvider, writer, sources);
+        tracked(new TrackedAsset(AssetType.FUND, "AFT"));
+
+        RefreshResult result = service.refreshPrices(Set.of(AssetType.FUND));
+
+        assertThat(result.failed()).containsExactly("FUND:AFT");
+    }
+
+    @Test
     void goldUsesTryCurrencyAndGoldSource() {
         tracked(new TrackedAsset(AssetType.GOLD, "GRAM"));
         when(gold.fetchPrices(any())).thenReturn(Map.of("GRAM", new BigDecimal("2907.84225891")));

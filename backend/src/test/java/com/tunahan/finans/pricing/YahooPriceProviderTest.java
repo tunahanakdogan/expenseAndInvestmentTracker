@@ -10,6 +10,8 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import java.net.SocketTimeoutException;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,7 +99,7 @@ class YahooPriceProviderTest {
         server.expect(requestTo(BASE + "THYAO.IS")).andRespond(withStatus(HttpStatus.NOT_FOUND));
         respond("ASELS.IS", PricingFixtures.read("yahoo-thyao.json"));
 
-        var prices = provider.fetchPrices(Set.of("THYAO", "ASELS"));
+        var prices = provider.fetchPrices(new LinkedHashSet<>(List.of("THYAO", "ASELS")));
 
         assertThat(prices).containsOnlyKeys("ASELS");
     }

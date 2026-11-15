@@ -15,6 +15,8 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import java.net.SocketTimeoutException;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,7 +82,15 @@ class FinnhubPriceProviderTest {
         server.expect(requestTo(BASE + "MSFT&token=test-key"))
                 .andRespond(withSuccess("{\"c\":\"abc\"}", MediaType.APPLICATION_JSON));
 
-        assertThat(provider("test-key").fetchPrices(Set.of("AAPL", "MSFT"))).isEmpty();
+        assertThat(provider("test-key").fetchPrices(new LinkedHashSet<>(List.of("AAPL", "MSFT")))).isEmpty();
+    }
+
+    @Test
+    void hugeExponentPriceIsIgnored() {
+        server.expect(requestTo(BASE + "AAPL&token=test-key"))
+                .andRespond(withSuccess("{\"c\":1e999999999}", MediaType.APPLICATION_JSON));
+
+        assertThat(provider("test-key").fetchPrices(Set.of("AAPL"))).isEmpty();
     }
 
     @Test
@@ -117,7 +127,7 @@ class FinnhubPriceProviderTest {
         server.expect(requestTo(BASE + "MSFT&token=test-key"))
                 .andRespond(withSuccess(PricingFixtures.read("finnhub-aapl.json"), MediaType.APPLICATION_JSON));
 
-        assertThat(provider("test-key").fetchPrices(Set.of("AAPL", "MSFT"))).containsOnlyKeys("MSFT");
+        assertThat(provider("test-key").fetchPrices(new LinkedHashSet<>(List.of("AAPL", "MSFT")))).containsOnlyKeys("MSFT");
     }
 
     @Test
@@ -134,7 +144,7 @@ class FinnhubPriceProviderTest {
         server.expect(requestTo(BASE + "AAPL&token=test-key")).andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
         server.expect(requestTo(BASE + "MSFT&token=test-key")).andRespond(withException(new SocketTimeoutException("test-key")));
 
-        provider("test-key").fetchPrices(Set.of("AAPL", "MSFT"));
+        provider("test-key").fetchPrices(new LinkedHashSet<>(List.of("AAPL", "MSFT")));
 
         assertThat(logs.list).isNotEmpty();
         assertThat(logs.list).allSatisfy(e -> assertThat(e.getFormattedMessage()).doesNotContain("test-key"));

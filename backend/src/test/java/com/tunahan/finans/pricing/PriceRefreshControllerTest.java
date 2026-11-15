@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
@@ -46,7 +47,10 @@ class PriceRefreshControllerTest {
         assertThat(mvc.post().uri("/api/pricing/refresh").header("Authorization", TestAuth.bearer(mvc)))
                 .hasStatus(HttpStatus.TOO_MANY_REQUESTS)
                 .hasHeader(HttpHeaders.RETRY_AFTER, "42")
-                .bodyJson().extractingPath("$.detail").isEqualTo("Biraz bekleyip tekrar dene");
+                .hasContentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson().isLenientlyEqualTo("""
+                        {"status": 429, "detail": "Biraz bekleyip tekrar dene"}
+                        """);
         verifyNoInteractions(service);
     }
 

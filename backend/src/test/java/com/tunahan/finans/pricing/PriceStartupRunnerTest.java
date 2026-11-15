@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.DefaultApplicationArguments;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -33,6 +34,13 @@ class PriceStartupRunnerTest {
 
         Thread.sleep(200);
         verify(service, never()).refreshRates();
+    }
+
+    @Test
+    void startupRunnerSurvivesDatabaseFailure() {
+        when(writer.hasRatesForToday()).thenThrow(new RuntimeException("db down"));
+
+        assertThatCode(() -> runner.run(new DefaultApplicationArguments())).doesNotThrowAnyException();
     }
 
     @Test

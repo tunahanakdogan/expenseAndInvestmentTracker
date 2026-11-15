@@ -33,6 +33,11 @@ class PricingHttpConfigTest {
             exchange.getResponseBody().write(body);
             exchange.close();
         });
+        server.createContext("/redirect", exchange -> {
+            exchange.getResponseHeaders().add("Location", "/ua");
+            exchange.sendResponseHeaders(302, -1);
+            exchange.close();
+        });
         server.createContext("/slow", exchange -> {
             try {
                 Thread.sleep(1000);
@@ -56,6 +61,14 @@ class PricingHttpConfigTest {
         RestClient client = PricingHttpConfig.restClient(RestClient.builder(), Duration.ofSeconds(5), Duration.ofSeconds(10));
 
         assertThat(client.get().uri("http://localhost:" + port + "/ua").retrieve().body(String.class))
+                .isEqualTo("finans-takip/0.0.1");
+    }
+
+    @Test
+    void followsRedirects() {
+        RestClient client = PricingHttpConfig.restClient(RestClient.builder(), Duration.ofSeconds(5), Duration.ofSeconds(10));
+
+        assertThat(client.get().uri("http://localhost:" + port + "/redirect").retrieve().body(String.class))
                 .isEqualTo("finans-takip/0.0.1");
     }
 

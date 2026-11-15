@@ -15,6 +15,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Map;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -88,7 +90,7 @@ class TefasPriceProviderTest {
         server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
         respond(PricingFixtures.read("tefas-aft.json"));
 
-        assertThat(provider.fetchPrices(Set.of("AAA", "AFT"))).hasSize(1);
+        assertThat(provider.fetchPrices(new LinkedHashSet<>(List.of("AAA", "AFT")))).hasSize(1);
     }
 
     @Test
