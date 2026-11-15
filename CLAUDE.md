@@ -31,7 +31,7 @@ Bu projede Ponytail plugin'i aktif (`.claude/settings.json`). Varsayılan mod `f
   - `docs/domain.md`'deki kurallar
 
 ## Kesin kurallar
-- Para: Java'da `BigDecimal`, DB'de `NUMBER(19,4)`. `double`/`float` asla. Yuvarlama `RoundingMode.HALF_EVEN`, gösterimde 2 hane.
+- Para: Java'da `BigDecimal` (`common.Money`), DB'de tutarlar `NUMBER(19,4)`, birim fiyat ve kur `NUMBER(19,8)` (D-007). `double`/`float` asla. Yuvarlama `RoundingMode.HALF_EVEN`, gösterimde 2 hane.
 - Her tutar yanında para birimi (`TRY`, `USD`, `EUR`…) saklanır.
 - Tarihler: işlem tarihi `LocalDate`, zaman damgası `Instant` (UTC). Kullanıcı saat dilimi `Europe/Istanbul`.
 - Kod (sınıf, tablo, kolon, değişken) **İngilizce**; arayüz metinleri **Türkçe**. Terim karşılıkları `docs/domain.md`'deki sözlükte.
