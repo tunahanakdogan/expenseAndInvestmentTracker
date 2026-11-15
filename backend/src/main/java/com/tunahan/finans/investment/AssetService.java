@@ -30,6 +30,16 @@ class AssetService {
         return assets.findByIdAndUserId(id, userId).orElseThrow(() -> new NotFoundException("Varlık bulunamadı"));
     }
 
+    /**
+     * Varlığı kilitleyerek okur: aynı varlığın işlem zincirini değiştiren istekler sıraya girer,
+     * böylece eşzamanlı iki satış aynı adedi iki kez satamaz. Çağıranın transaction'ı içinde kullanılır.
+     */
+    @Transactional
+    Asset getForUpdate(Long userId, Long id) {
+        return assets.findWithLockByIdAndUserId(id, userId)
+                .orElseThrow(() -> new NotFoundException("Varlık bulunamadı"));
+    }
+
     @Transactional
     Asset create(Long userId, AssetType type, String rawSymbol, String name) {
         String symbol = Asset.normalizeSymbol(rawSymbol);

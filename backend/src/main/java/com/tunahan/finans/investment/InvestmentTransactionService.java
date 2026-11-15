@@ -42,7 +42,8 @@ class InvestmentTransactionService {
 
     @Transactional
     InvestmentTransaction add(Long userId, NewTransaction tx) {
-        Asset asset = assets.get(userId, tx.assetId());
+        // Kilit: zincir doğrulaması ile kayıt arasında başka bir istek araya giremez.
+        Asset asset = assets.getForUpdate(userId, tx.assetId());
         if (tx.tradeDate().isAfter(LocalDate.now(ISTANBUL))) {
             throw new BusinessRuleException("İşlem tarihi gelecekte olamaz");
         }
@@ -76,8 +77,15 @@ class InvestmentTransactionService {
     void delete(Long userId, Long id) {
         InvestmentTransaction tx = transactions.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new NotFoundException("İşlem bulunamadı"));
-        List<Trade> remaining = transactions.findByUserIdAndAssetIdOrderByTradeDateAscIdAsc(userId, tx.getAssetId())
-                .stream().filter(t -> !t.getId().equals(id)).map(InvestmentTransaction::toTrade).toList();
+        assets.getForUpdate(userId, tx.getAssetId());
+        List<InvestmentTransaction> chain =
+                transactions.findByUserIdAndAssetIdOrderByTradeDateAscIdAsc(userId, tx.getAssetId());
+        if (chain.stream().noneMatch(t -> t.getId().equals(id))) {
+            // Kilidi beklerken başka bir istek aynı işlemi silmiş.
+            throw new NotFoundException("İşlem bulunamadı");
+        }
+        List<Trade> remaining = chain.stream().filter(t -> !t.getId().equals(id))
+                .map(InvestmentTransaction::toTrade).toList();
         try {
             PositionCalculator.calculate(remaining, tx.getFxRateTry() != null);
         } catch (BusinessRuleException e) {
