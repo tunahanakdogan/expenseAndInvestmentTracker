@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-/** Yatirim fonlari: TEFAS gecmis fiyat ucu; son 7 gunun en yeni tarihli FIYAT degeri. */
+/** Yatırım fonları: TEFAS geçmiş fiyat ucu; son 7 günün en yeni tarihli FIYAT değeri. */
 @Component
 class TefasPriceProvider implements PriceProvider {
 
@@ -49,7 +49,7 @@ class TefasPriceProvider implements PriceProvider {
             try {
                 latestPrice(symbol).ifPresent(p -> prices.put(symbol, p));
             } catch (ResourceAccessException e) {
-                log.warn("TEFAS erisilemiyor, kalan fonlar atlandi");
+                log.warn("TEFAS erişilemiyor, kalan fonlar atlandı");
                 break;
             }
         }
@@ -86,13 +86,13 @@ class TefasPriceProvider implements PriceProvider {
                 }
             }
             if (latestPrice == null) {
-                log.warn("TEFAS {} icin gecerli fiyat donmedi", fundCode);
+                log.warn("TEFAS {} için geçerli fiyat dönmedi", fundCode);
             }
             return Optional.ofNullable(latestPrice);
         } catch (ResourceAccessException e) {
             throw e;
         } catch (RestClientException | JacksonException e) {
-            log.warn("TEFAS {} alinamadi: {}", fundCode, e.getClass().getSimpleName());
+            log.warn("TEFAS {} alınamadı: {}", fundCode, e.getClass().getSimpleName());
             return Optional.empty();
         }
     }

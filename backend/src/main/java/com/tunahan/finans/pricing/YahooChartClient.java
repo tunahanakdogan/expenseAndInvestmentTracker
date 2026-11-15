@@ -15,7 +15,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
-/** Yahoo chart ucu; BIST ve altin saglayicilari ortak kullanir. */
+/** Yahoo chart ucu; BIST ve altın sağlayıcıları ortak kullanır. */
 @Component
 class YahooChartClient {
 
@@ -28,14 +28,14 @@ class YahooChartClient {
         this.restClient = restClient;
     }
 
-    /** Sembol tek bir path segmenti olarak kodlanir; "/" gibi karakterler yola sizmaz. */
+    /** Sembol tek bir path segmenti olarak kodlanır; "/" gibi karakterler yola sızmaz. */
     static URI uri(String yahooSymbol) {
         return URI.create(BASE + UriUtils.encodePathSegment(yahooSymbol, StandardCharsets.UTF_8));
     }
 
     /**
-     * chart.result[0].meta.regularMarketPrice. Ag hatasi (ResourceAccessException) cagirana atilir ki
-     * saglayici kalan sembolleri denemesin; sembole ozgu hatalar bos doner.
+     * {@code chart.result[0].meta.regularMarketPrice}. Ağ hatası ({@link ResourceAccessException}) çağırana
+     * atılır ki sağlayıcı kalan sembolleri denemesin; sembole özgü hatalar boş döner.
      */
     Optional<BigDecimal> regularMarketPrice(String yahooSymbol) {
         try {
@@ -46,13 +46,13 @@ class YahooChartClient {
             Optional<BigDecimal> price = PricingJson.positive(PricingJson.parse(body)
                     .path("chart").path("result").path(0).path("meta").path("regularMarketPrice"));
             if (price.isEmpty()) {
-                log.warn("Yahoo {} icin gecerli fiyat donmedi", yahooSymbol);
+                log.warn("Yahoo {} için geçerli fiyat dönmedi", yahooSymbol);
             }
             return price;
         } catch (ResourceAccessException e) {
             throw e;
         } catch (RestClientException | JacksonException e) {
-            log.warn("Yahoo {} alinamadi: {}", yahooSymbol, e.getClass().getSimpleName());
+            log.warn("Yahoo {} alınamadı: {}", yahooSymbol, e.getClass().getSimpleName());
             return Optional.empty();
         }
     }

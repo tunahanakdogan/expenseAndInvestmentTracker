@@ -15,11 +15,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Saglayicilari sirayla calistirir; biri patlayinca digerleri surer. Istisna disari cikmaz. */
+/** Sağlayıcıları sırayla çalıştırır; biri patlayınca diğerleri sürer. İstisna dışarı çıkmaz. */
 @Service
 class PriceRefreshService {
 
-    /** Kur ardindan fiyatlar bu sirayla cekilir. */
+    /** Kurun ardından fiyatlar bu sırayla çekilir. */
     private static final List<AssetType> PRICE_TYPES =
             List.of(AssetType.BIST_STOCK, AssetType.US_STOCK, AssetType.GOLD, AssetType.FUND);
 
@@ -38,7 +38,7 @@ class PriceRefreshService {
         this.trackedSources = trackedSources;
     }
 
-    /** failed: kur icin "RATES", fiyat icin "BIST_STOCK:THYAO". */
+    /** failed: kur için "RATES", fiyat için "BIST_STOCK:THYAO". */
     record RefreshResult(int updatedPrices, int updatedRates, List<String> failed) {
     }
 
@@ -54,12 +54,12 @@ class PriceRefreshService {
                     writer.saveRate(e.getKey(), e.getValue(), rateProvider.source());
                     saved++;
                 } catch (RuntimeException ex) {
-                    log.warn("Kur yazilamadi: {}", e.getKey(), ex);
+                    log.warn("Kur yazılamadı: {} ({})", e.getKey(), describe(ex));
                 }
             }
             return new RefreshResult(0, saved, saved == 0 ? List.of("RATES") : List.of());
         } catch (RuntimeException e) {
-            log.warn("Kur yenileme basarisiz", e);
+            log.warn("Kur yenileme başarısız: {}", describe(e));
             return new RefreshResult(0, 0, List.of("RATES"));
         }
     }
@@ -67,6 +67,10 @@ class PriceRefreshService {
     RefreshResult refreshPrices(Set<AssetType> types) {
         Map<AssetType, Set<String>> wanted = new EnumMap<>(AssetType.class);
         for (TrackedAsset asset : trackedAssets()) {
+            if (asset == null || asset.type() == null || asset.symbol() == null || asset.symbol().isBlank()) {
+                log.warn("Geçersiz takip kaydı atlandı: {}", asset);
+                continue;
+            }
             if (asset.type() != AssetType.CURRENCY && types.contains(asset.type())) {
                 wanted.computeIfAbsent(asset.type(), t -> new LinkedHashSet<>()).add(asset.symbol());
             }
@@ -80,6 +84,8 @@ class PriceRefreshService {
             }
             PriceProvider provider = providers.stream().filter(p -> p.supports(type)).findFirst().orElse(null);
             if (provider == null) {
+                log.warn("{} için fiyat sağlayıcısı yok", type);
+                symbols.forEach(s -> failed.add(type + ":" + s));
                 continue;
             }
             Map<String, BigDecimal> fetched = fetch(provider, type, symbols);
@@ -94,7 +100,7 @@ class PriceRefreshService {
                     writer.savePrice(type, symbol, price, currency, provider.source());
                     updated++;
                 } catch (RuntimeException e) {
-                    log.warn("Fiyat yazilamadi: {}:{}", type, symbol, e);
+                    log.warn("Fiyat yazılamadı: {}:{} ({})", type, symbol, describe(e));
                     failed.add(type + ":" + symbol);
                 }
             }
@@ -115,7 +121,7 @@ class PriceRefreshService {
             Map<String, BigDecimal> result = provider.fetchPrices(symbols);
             return result == null ? Map.of() : result;
         } catch (RuntimeException e) {
-            log.warn("{} fiyat saglayicisi basarisiz", type, e);
+            log.warn("{} fiyat sağlayıcısı başarısız: {}", type, describe(e));
             return Map.of();
         }
     }
@@ -124,8 +130,13 @@ class PriceRefreshService {
         try {
             return trackedSources.stream().flatMap(s -> s.trackedAssets().stream()).toList();
         } catch (RuntimeException e) {
-            log.warn("Takip edilen varliklar okunamadi", e);
+            log.warn("Takip edilen varlıklar okunamadı: {}", describe(e));
             return List.of();
         }
+    }
+
+    /** Yığın ve URL (token içerebilir) loglanmaz; yalnız sınıf adı ve mesaj. */
+    private static String describe(RuntimeException e) {
+        return e.getClass().getSimpleName() + ": " + e.getMessage();
     }
 }

@@ -8,8 +8,11 @@ import org.springframework.web.client.RestClient;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.SAXParseException;
 
 import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
@@ -52,7 +55,22 @@ class TcmbExchangeRateProvider implements ExchangeRateProvider {
         factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         factory.setXIncludeAware(false);
         factory.setExpandEntityReferences(false);
-        Document doc = factory.newDocumentBuilder().parse(new ByteArrayInputStream(xml));
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        // Varsayılan işleyici bozuk XML'de stderr'e "[Fatal Error]" basar; hata yine de istisna olarak fırlar.
+        builder.setErrorHandler(new ErrorHandler() {
+            @Override
+            public void warning(SAXParseException e) {
+            }
+
+            @Override
+            public void error(SAXParseException e) {
+            }
+
+            @Override
+            public void fatalError(SAXParseException e) {
+            }
+        });
+        Document doc = builder.parse(new ByteArrayInputStream(xml));
 
         Map<String, BigDecimal> rates = new LinkedHashMap<>();
         NodeList currencies = doc.getElementsByTagName("Currency");

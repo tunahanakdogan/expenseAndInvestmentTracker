@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Set;
 
-/** Zamanlanmis fiyat/kur yenilemeleri (Europe/Istanbul). Zamanlama yalniz app.pricing.enabled iken calisir. */
+/** Zamanlanmış fiyat/kur yenilemeleri (Europe/Istanbul). Zamanlama yalnız app.pricing.enabled iken çalışır. */
 @Component
 class PriceRefreshJob {
 
@@ -28,20 +28,20 @@ class PriceRefreshJob {
 
     @Scheduled(cron = "0 0 10-23 * * MON-FRI", zone = "Europe/Istanbul")
     void refreshMarketPrices() {
-        run("piyasa fiyatlari",
+        run("piyasa fiyatları",
                 () -> service.refreshPrices(Set.of(AssetType.BIST_STOCK, AssetType.US_STOCK, AssetType.GOLD)));
     }
 
     @Scheduled(cron = "0 30 19 * * MON-FRI", zone = "Europe/Istanbul")
     void refreshFunds() {
-        run("fon fiyatlari", () -> service.refreshPrices(Set.of(AssetType.FUND)));
+        run("fon fiyatları", () -> service.refreshPrices(Set.of(AssetType.FUND)));
     }
 
     private void run(String what, Runnable task) {
         try {
             task.run();
         } catch (RuntimeException e) {
-            log.warn("Zamanlanmis {} yenilemesi basarisiz", what, e);
+            log.warn("Zamanlanmış {} yenilemesi başarısız: {}", what, e.getClass().getSimpleName());
         }
     }
 }

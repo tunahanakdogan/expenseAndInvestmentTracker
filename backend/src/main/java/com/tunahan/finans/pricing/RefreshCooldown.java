@@ -6,7 +6,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** Elle yenilemeler arasinda en az 60 sn (Finnhub limitini korur). Atomik: es zamanli isteklerden yalniz biri gecer. */
+/** Elle yenilemeler arasında en az 60 sn (Finnhub limitini korur). Atomik: eşzamanlı isteklerden yalnız biri geçer. */
 @Component
 class RefreshCooldown {
 

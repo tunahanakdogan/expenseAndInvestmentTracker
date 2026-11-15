@@ -22,7 +22,8 @@ class PricingHttpConfig {
 
     static RestClient restClient(RestClient.Builder builder, Duration connect, Duration read) {
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(
-                HttpClient.newBuilder().connectTimeout(connect).build());
+                HttpClient.newBuilder().connectTimeout(connect)
+                        .followRedirects(HttpClient.Redirect.NORMAL).build());
         factory.setReadTimeout(read);
         return builder.requestFactory(factory)
                 .defaultHeader("User-Agent", USER_AGENT)

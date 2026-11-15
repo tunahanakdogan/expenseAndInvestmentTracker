@@ -12,8 +12,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 /**
- * price_history / exchange_rate icin (tur, sembol, gun) basina upsert; gun icinde son deger kalir.
- * Her yazma kendi transaction'inda; eszamanli insert yarisinda (unique ihlali) bir kez yeniden okuyup gunceller.
+ * price_history / exchange_rate için (tür, sembol, gün) başına upsert; gün içinde son değer kalır.
+ * Her yazma kendi transaction'ında; eşzamanlı insert yarışında (unique ihlali) bir kez yeniden okuyup günceller.
  */
 @Component
 class PriceWriter {

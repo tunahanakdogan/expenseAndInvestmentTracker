@@ -19,7 +19,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** ABD hisseleri: Finnhub quote ucu, deger "c" (guncel fiyat). Anahtar ve URL asla loglanmaz. */
+/** ABD hisseleri: Finnhub quote ucu, değer "c" (güncel fiyat). Anahtar ve URL asla loglanmaz. */
 @Component
 class FinnhubPriceProvider implements PriceProvider {
 
@@ -46,7 +46,7 @@ class FinnhubPriceProvider implements PriceProvider {
         Map<String, BigDecimal> prices = new LinkedHashMap<>();
         if (apiKey == null || apiKey.isBlank()) {
             if (warnedMissingKey.compareAndSet(false, true)) {
-                log.warn("US_STOCK_API_KEY tanimli degil, ABD hisse fiyatlari atlaniyor");
+                log.warn("US_STOCK_API_KEY tanımlı değil, ABD hisse fiyatları atlanıyor");
             }
             return prices;
         }
@@ -54,7 +54,7 @@ class FinnhubPriceProvider implements PriceProvider {
             try {
                 quote(symbol).ifPresent(p -> prices.put(symbol, p));
             } catch (ResourceAccessException e) {
-                log.warn("Finnhub erisilemiyor, kalan ABD sembolleri atlandi");
+                log.warn("Finnhub erişilemiyor, kalan ABD sembolleri atlandı");
                 break;
             }
         }
@@ -73,16 +73,16 @@ class FinnhubPriceProvider implements PriceProvider {
                     ? Optional.empty()
                     : PricingJson.positive(PricingJson.parse(body).path("c"));
             if (price.isEmpty()) {
-                log.warn("Finnhub {} icin gecerli fiyat donmedi", symbol);
+                log.warn("Finnhub {} için geçerli fiyat dönmedi", symbol);
             }
             return price;
         } catch (ResourceAccessException e) {
             throw e;
         } catch (RestClientResponseException e) {
-            log.warn("Finnhub {} alinamadi: HTTP {}", symbol, e.getStatusCode().value());
+            log.warn("Finnhub {} alınamadı: HTTP {}", symbol, e.getStatusCode().value());
             return Optional.empty();
         } catch (RestClientException | JacksonException e) {
-            log.warn("Finnhub {} alinamadi: {}", symbol, e.getClass().getSimpleName());
+            log.warn("Finnhub {} alınamadı: {}", symbol, e.getClass().getSimpleName());
             return Optional.empty();
         }
     }

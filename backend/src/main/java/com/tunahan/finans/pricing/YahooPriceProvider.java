@@ -35,7 +35,7 @@ class YahooPriceProvider implements PriceProvider {
             try {
                 yahoo.regularMarketPrice(symbol + ".IS").ifPresent(p -> prices.put(symbol, p));
             } catch (ResourceAccessException e) {
-                log.warn("Yahoo erisilemiyor, kalan BIST sembolleri atlandi");
+                log.warn("Yahoo erişilemiyor, kalan BIST sembolleri atlandı");
                 break;
             }
         }

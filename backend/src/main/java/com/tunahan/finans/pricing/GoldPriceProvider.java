@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-/** Gram altin (TL): Yahoo GC=F (ons USD) x USD/TRY / 31.1035. Yalnizca "GRAM" sembolu. */
+/** Gram altın (TL): Yahoo GC=F (ons USD) × USD/TRY ÷ 31.1035. Yalnızca "GRAM" sembolü. */
 @Component
 class GoldPriceProvider implements PriceProvider {
 
@@ -30,7 +30,7 @@ class GoldPriceProvider implements PriceProvider {
         this.clock = clock;
     }
 
-    /** Once carp, sonra bol; olcek 8, HALF_EVEN. */
+    /** Önce çarp, sonra böl; ölçek 8, HALF_EVEN. */
     static BigDecimal gramTry(BigDecimal ouncesUsd, BigDecimal usdTry) {
         return ouncesUsd.multiply(usdTry).divide(GRAMS_PER_OUNCE, 8, RoundingMode.HALF_EVEN);
     }
@@ -47,7 +47,7 @@ class GoldPriceProvider implements PriceProvider {
         }
         Optional<BigDecimal> usdTry = prices.rateToTry("USD", clock.today());
         if (usdTry.isEmpty()) {
-            log.warn("USD/TRY kuru yok, gram altin hesaplanamadi");
+            log.warn("USD/TRY kuru yok, gram altın hesaplanamadı");
             return Map.of();
         }
         try {
@@ -55,7 +55,7 @@ class GoldPriceProvider implements PriceProvider {
                     .map(ounce -> Map.of(GRAM, gramTry(ounce, usdTry.get())))
                     .orElse(Map.of());
         } catch (ResourceAccessException e) {
-            log.warn("Yahoo erisilemiyor, gram altin alinamadi");
+            log.warn("Yahoo erişilemiyor, gram altın alınamadı");
             return Map.of();
         }
     }
