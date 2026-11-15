@@ -65,13 +65,24 @@ class PaymentPlanTest {
         assertThat(split(new BigDecimal("250.50"), 1)).containsExactly(new BigDecimal("250.50"));
     }
 
+    /** HALF_EVEN yukarı yuvarlayınca son taksit eksiye düşüyorsa taksit aşağı yuvarlanır; fark yine son taksitte. */
     @Test
-    void splitRejectsAmountsTooSmallForInstallmentCount() {
-        // 0.26 / 36 = 0.01 → son taksit 0.26 − 0.35 < 0
-        assertThatThrownBy(() -> split(new BigDecimal("0.26"), 36))
+    void splitRoundsDownWhenHalfEvenWouldMakeLastInstallmentNonPositive() {
+        // 1.00 / 36 = 0.0278 → HALF_EVEN 0.03 → son taksit 1.00 − 1.05 < 0; DOWN 0.02 → son 0.30
+        List<BigDecimal> parts = split(new BigDecimal("1.00"), 36);
+
+        assertThat(parts).hasSize(36);
+        assertThat(parts.subList(0, 35)).containsOnly(new BigDecimal("0.02"));
+        assertThat(parts.get(35)).isEqualTo(new BigDecimal("0.30"));
+        assertThat(split(new BigDecimal("0.36"), 36)).containsOnly(new BigDecimal("0.01"));
+    }
+
+    @Test
+    void splitRejectsAmountsBelowOneKurusPerInstallment() {
+        assertThatThrownBy(() -> split(new BigDecimal("0.35"), 36))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessage("Tutar bu taksit sayısına bölünemeyecek kadar küçük");
-        // 0.01 / 2 = 0.00 (HALF_EVEN) → ilk taksit 0
+        assertThatThrownBy(() -> split(new BigDecimal("0.26"), 36)).isInstanceOf(BusinessRuleException.class);
         assertThatThrownBy(() -> split(new BigDecimal("0.01"), 2)).isInstanceOf(BusinessRuleException.class);
     }
 
@@ -79,26 +90,34 @@ class PaymentPlanTest {
     void splitAlwaysSumsToTotal() {
         Random random = new Random(20261115);
         for (int round = 0; round < 10_000; round++) {
-            BigDecimal total = BigDecimal.valueOf(1 + random.nextLong(100_000_000L), 2);
+            // Yarısı küçük tutarlar: ret sınırı (toplam < 0.01 × N) ve aşağı yuvarlama dalı da sınansın.
+            long kurus = 1 + (round % 2 == 0 ? random.nextLong(100_000_000L) : random.nextLong(1_000L));
+            BigDecimal total = BigDecimal.valueOf(kurus, 2);
             int count = 1 + random.nextInt(36);
+            boolean tooSmall = kurus < count;
 
             List<BigDecimal> parts;
             try {
                 parts = split(total, count);
             } catch (BusinessRuleException e) {
-                assertThat(total).as("%s / %s reddedilmemeliydi", total, count).isLessThan(BigDecimal.ONE);
+                assertThat(tooSmall).as("%s / %s reddedilmemeliydi", total, count).isTrue();
                 continue;
             }
 
+            assertThat(tooSmall).as("%s / %s reddedilmeliydi", total, count).isFalse();
             assertThat(parts).as("%s / %s", total, count).hasSize(count);
             assertThat(parts.stream().reduce(BigDecimal.ZERO, BigDecimal::add)).isEqualByComparingTo(total);
-            BigDecimal part = total.divide(BigDecimal.valueOf(count), 2, RoundingMode.HALF_EVEN);
             for (int i = 0; i < count; i++) {
-                assertThat(parts.get(i)).isPositive();
+                assertThat(parts.get(i)).as("%s / %s, taksit %s", total, count, i + 1).isPositive();
                 assertThat(parts.get(i).scale()).isLessThanOrEqualTo(2);
                 if (i < count - 1) {
-                    assertThat(parts.get(i)).isEqualByComparingTo(part);
+                    assertThat(parts.get(i)).isEqualByComparingTo(parts.get(0));
                 }
+            }
+            // Yuvarlama gerekmiyorsa ya da HALF_EVEN geçerliyse ilk taksitler HALF_EVEN bölümdür.
+            BigDecimal halfEven = total.divide(BigDecimal.valueOf(count), 2, RoundingMode.HALF_EVEN);
+            if (total.subtract(halfEven.multiply(BigDecimal.valueOf(count - 1L))).signum() > 0) {
+                assertThat(parts.get(0)).isEqualByComparingTo(halfEven);
             }
         }
     }

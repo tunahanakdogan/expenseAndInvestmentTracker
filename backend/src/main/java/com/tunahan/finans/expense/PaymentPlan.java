@@ -4,6 +4,7 @@ import com.tunahan.finans.common.BusinessRuleException;
 import com.tunahan.finans.common.Money;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -41,12 +42,20 @@ final class PaymentPlan {
 
     /**
      * Toplamı {@code count} taksite böler: taksit = toplam / N (2 hane, HALF_EVEN), kuruş farkı son taksitte.
-     * Taksitlerin toplamı her zaman {@code total}'a eşittir.
+     * Yukarı yuvarlama son taksiti sıfıra ya da eksiye düşürüyorsa (küçük tutar, çok taksit) taksit aşağı
+     * yuvarlanır; o zaman son taksit en az diğerleri kadardır. Taksitlerin toplamı her zaman {@code total}'a
+     * eşittir. Taksit başına 1 kuruş bile düşmüyorsa (toplam < 0.01 × N) reddedilir.
      */
     static List<BigDecimal> split(BigDecimal total, int count) {
-        BigDecimal part = total.divide(BigDecimal.valueOf(count), 2, Money.ROUNDING);
-        BigDecimal last = total.subtract(part.multiply(BigDecimal.valueOf(count - 1L)));
-        if (part.signum() <= 0 || last.signum() <= 0) {
+        BigDecimal divisor = BigDecimal.valueOf(count);
+        BigDecimal others = BigDecimal.valueOf(count - 1L);
+        BigDecimal part = total.divide(divisor, 2, Money.ROUNDING);
+        BigDecimal last = total.subtract(part.multiply(others));
+        if (last.signum() <= 0) {
+            part = total.divide(divisor, 2, RoundingMode.DOWN);
+            last = total.subtract(part.multiply(others));
+        }
+        if (part.signum() <= 0) {
             throw new BusinessRuleException("Tutar bu taksit sayısına bölünemeyecek kadar küçük");
         }
         List<BigDecimal> parts = new ArrayList<>(count);
