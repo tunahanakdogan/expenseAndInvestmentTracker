@@ -198,6 +198,31 @@ describe('ExpenseEntry', () => {
     expect(accountSelect().value).toBe('1');
   });
 
+  it('localStorage kullanılamıyorsa form yine çalışır ve kaydeder', async () => {
+    // Gizli sekme ya da engellenmiş depolama: getItem/setItem SecurityError fırlatır.
+    const blocked = () => {
+      throw new DOMException('blocked', 'SecurityError');
+    };
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(blocked);
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(blocked);
+    try {
+      await setup();
+      expect(accountSelect().value).toBe('1');
+
+      type('amount', '12,5');
+      await pickCategory('Market');
+      await save();
+      http.expectOne('/api/expenses').flush({});
+
+      expect(getItem).toHaveBeenCalledWith(LAST_ACCOUNT_KEY);
+      expect(setItem).toHaveBeenCalledWith(LAST_ACCOUNT_KEY, '1');
+      expect(sheetRef.dismiss).toHaveBeenCalledWith(true);
+    } finally {
+      getItem.mockRestore();
+      setItem.mockRestore();
+    }
+  });
+
   it('tarih varsayılanı yerel bugündür', async () => {
     vi.setSystemTime(new Date(2026, 10, 15, 0, 30));
     await setup();

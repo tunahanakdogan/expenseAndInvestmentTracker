@@ -183,7 +183,7 @@ export class ExpenseEntry {
         this.accounts.set(accounts);
         if (accounts.length > 0) {
           // Son kullanılan hesap; silinmişse (ya da ilk kullanımda) ilk hesap.
-          const last = localStorage.getItem(LAST_ACCOUNT_KEY);
+          const last = readLastAccountId();
           const initial = accounts.find((a) => String(a.id) === last) ?? accounts[0];
           this.form.controls.accountId.setValue(String(initial.id));
         }
@@ -230,7 +230,7 @@ export class ExpenseEntry {
       })
       .subscribe({
         next: () => {
-          localStorage.setItem(LAST_ACCOUNT_KEY, raw.accountId);
+          storeLastAccountId(raw.accountId);
           this.sheetRef.dismiss(true);
         },
         error: (err: HttpErrorResponse) => {
@@ -238,5 +238,23 @@ export class ExpenseEntry {
           this.error.set(apiErrorMessage(err, 'Kaydedilemedi, tekrar dene'));
         },
       });
+  }
+}
+
+// Gizli sekmede ya da depolama engellenmişse localStorage hata fırlatır; son hesap yalnız bir kolaylıktır,
+// okunamaz ya da yazılamazsa form ilk hesapla çalışmaya devam eder.
+function readLastAccountId(): string | null {
+  try {
+    return localStorage.getItem(LAST_ACCOUNT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function storeLastAccountId(accountId: string): void {
+  try {
+    localStorage.setItem(LAST_ACCOUNT_KEY, accountId);
+  } catch {
+    // Saklanamadı; bir sonraki girişte ilk hesap varsayılan olur.
   }
 }
