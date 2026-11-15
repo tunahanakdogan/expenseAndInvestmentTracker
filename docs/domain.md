@@ -18,6 +18,7 @@
 - N taksitli harcamada backend N ödeme satırını otomatik üretir; her biri bir aya (`period`, `YearMonth`) ait.
 - **Aylık raporlar ödemelere göre hesaplanır**, harcama tarihine göre değil.
 - Taksit tutarı: `toplam / N`, 2 haneye `HALF_EVEN` yuvarlanır; kuruş farkı **son taksite** eklenir. Taksitlerin toplamı her zaman harcama toplamına eşittir (test ile garanti).
+  - Yukarı yuvarlama son taksiti sıfıra ya da eksiye düşürüyorsa (küçük tutar, çok taksit; ör. 1,00 / 36) taksit 2 haneye **aşağı** yuvarlanır (35 × 0,02 + son 0,30). Taksit başına 1 kuruş düşmüyorsa (toplam < 0,01 × N) harcama reddedilir.
 - Toplam tutarı kullanıcı girer (vade farkı dahil). Taksitler tek tek düzenlenebilir; düzenleme sonrası toplam yeniden hesaplanır.
 - **Dönem kuralı** (D-001):
   - Nakit/banka: ilk dönem = harcama ayı. Taksit yalnız kredi kartında (1–36).
