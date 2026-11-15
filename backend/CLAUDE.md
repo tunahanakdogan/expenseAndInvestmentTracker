@@ -27,7 +27,14 @@ Modül paketi ancak o modülün ilk özelliği yazılırken oluşturulur; boş p
 - Migration'lar: `src/main/resources/db/migration/V<n>__<aciklama>.sql`. Uygulanmış migration değiştirilmez; yenisi yazılır.
 - `spring.jpa.hibernate.ddl-auto=validate`. Hibernate şema üretmez.
 - ID'ler: `NUMBER` + identity column.
-- Para kolonları `NUMBER(19,4)`, adet kolonları `NUMBER(19,8)` (fon payı ve kesirli ABD hissesi için).
+- Tutar kolonları `NUMBER(19,4)`; birim fiyat, kur ve adet kolonları `NUMBER(19,8)` (fon fiyatı/payı, kesirli ABD hissesi).
+- Para birimi ve dönem gibi kısa metinler `VARCHAR2(n)` (CHAR değil; Hibernate şema doğrulaması `CHAR`'ı reddeder).
+- Kullanıcıya ait tablolarda `user_id`; servisler her sorguyu `userId` ile filtreler, başkasının kaydı → `NotFoundException` (404). Kullanıcı id'si: `CurrentUser.id(jwt)`.
+- İş kuralı ihlali → `BusinessRuleException` (422, Türkçe mesaj).
+
+## Test altyapısı
+- Entegrasyon testleri `@IntegrationTest` (Oracle Testcontainers + MockMvcTester, paylaşılan context) kullanır; token için `TestAuth.bearer(mvc)`.
+- Veri ekleyen testler `@Transactional` (geri alınır) ya da kendi verisini temizler.
 - Rapor gibi toplu sorgular için native SQL veya PL/SQL kabul; önce JPQL yetiyor mu bak.
 
 ## Fiyat sağlayıcılar

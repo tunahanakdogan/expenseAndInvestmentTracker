@@ -1,47 +1,32 @@
 package com.tunahan.finans.auth;
 
-import com.jayway.jsonpath.JsonPath;
-import com.tunahan.finans.TestcontainersConfiguration;
+import com.tunahan.finans.IntegrationTest;
+import com.tunahan.finans.TestAuth;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
-import java.nio.charset.StandardCharsets;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Import(TestcontainersConfiguration.class)
-@SpringBootTest(properties = {
-        "app.jwt.secret=test-secret-test-secret-test-secret-123",
-        "app.initial-user.username=tunahan",
-        "app.initial-user.password=gizli-sifre"
-})
-@AutoConfigureMockMvc
+@IntegrationTest
 class AuthControllerTest {
 
     @Autowired
     MockMvcTester mvc;
 
     @Test
-    void loginWithValidCredentialsReturnsTokenThatOpensProtectedEndpoint() throws Exception {
-        MvcTestResult login = login("tunahan", "gizli-sifre");
-        assertThat(login).hasStatusOk();
-        String token = JsonPath.read(login.getResponse().getContentAsString(StandardCharsets.UTF_8), "$.token");
-
-        assertThat(mvc.get().uri("/api/auth/me").header("Authorization", "Bearer " + token))
+    void loginWithValidCredentialsReturnsTokenThatOpensProtectedEndpoint() {
+        assertThat(mvc.get().uri("/api/auth/me").header("Authorization", TestAuth.bearer(mvc)))
                 .hasStatusOk()
-                .bodyJson().extractingPath("$.username").isEqualTo("tunahan");
+                .bodyJson().extractingPath("$.username").isEqualTo(TestAuth.USERNAME);
     }
 
     @Test
     void loginWithWrongPasswordReturns401ProblemDetail() {
-        assertThat(login("tunahan", "yanlis"))
+        assertThat(login(TestAuth.USERNAME, "yanlis"))
                 .hasStatus(HttpStatus.UNAUTHORIZED)
                 .bodyJson().extractingPath("$.detail").isEqualTo("Kullanıcı adı veya şifre hatalı");
     }

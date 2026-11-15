@@ -19,7 +19,11 @@
 - **Aylık raporlar ödemelere göre hesaplanır**, harcama tarihine göre değil.
 - Taksit tutarı: `toplam / N`, 2 haneye `HALF_EVEN` yuvarlanır; kuruş farkı **son taksite** eklenir. Taksitlerin toplamı her zaman harcama toplamına eşittir (test ile garanti).
 - Toplam tutarı kullanıcı girer (vade farkı dahil). Taksitler tek tek düzenlenebilir; düzenleme sonrası toplam yeniden hesaplanır.
-- İlk taksitin hangi aya düştüğü: bkz. `decisions.md` → D-001.
+- **Dönem kuralı** (D-001):
+  - Nakit/banka: ilk dönem = harcama ayı. Taksit yalnız kredi kartında (1–36).
+  - Kredi kartı: etkin kesim günü = `min(statementDay, ayın son günü)`. Harcama günü ≤ etkin kesim günü → ilk dönem harcama ayı; değilse sonraki ay. Tek çekim de bu kurala uyar.
+  - Taksit `i` → ilk dönem + (i−1) ay.
+  - Örnek: kesim günü 10, 15 Kasım'da 3 taksit → Aralık, Ocak, Şubat.
 - İptal/iade ve erken kapatma ilk sürümde yok, ama model engel olmamalı (ödeme satırında `status` alanı).
 
 ## Yatırımlar
