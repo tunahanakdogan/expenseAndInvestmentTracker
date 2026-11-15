@@ -115,6 +115,16 @@ class AssetControllerTest extends InvestmentApiTestBase {
     }
 
     @Test
+    void deleteAssetWithTransactionsReturns422() {
+        long user = newUser();
+        long id = createAsset(user, "BIST_STOCK", "THYAO", "THY");
+        assertThat(postTx(user, id, "BUY", "2026-01-10", "1", "100", null, null)).hasStatus(HttpStatus.CREATED);
+
+        assertRejected(delete(user, "/api/assets/" + id), HttpStatus.UNPROCESSABLE_CONTENT,
+                "İşlemi olan varlık silinemez");
+    }
+
+    @Test
     void withoutTokenReturns401() {
         assertThat(mvc.get().uri("/api/assets")).hasStatus(HttpStatus.UNAUTHORIZED);
     }

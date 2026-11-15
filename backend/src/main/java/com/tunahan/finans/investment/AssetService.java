@@ -13,9 +13,11 @@ import java.util.List;
 class AssetService {
 
     private final AssetRepository assets;
+    private final InvestmentTransactionRepository transactions;
 
-    AssetService(AssetRepository assets) {
+    AssetService(AssetRepository assets, InvestmentTransactionRepository transactions) {
         this.assets = assets;
+        this.transactions = transactions;
     }
 
     @Transactional(readOnly = true)
@@ -47,7 +49,11 @@ class AssetService {
 
     @Transactional
     void delete(Long userId, Long id) {
-        assets.delete(get(userId, id));
+        Asset asset = get(userId, id);
+        if (transactions.existsByAssetId(asset.getId())) {
+            throw new BusinessRuleException("İşlemi olan varlık silinemez");
+        }
+        assets.delete(asset);
     }
 
     /** Sembol, fiyat tablosunun anahtarıdır; fiyat sağlayıcının tanıyacağı biçimde olmalı. */

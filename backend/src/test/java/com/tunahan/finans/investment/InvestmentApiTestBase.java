@@ -74,6 +74,21 @@ abstract class InvestmentApiTestBase {
         return ((Number) path(result, "$.id")).longValue();
     }
 
+    /** Null verilen alanlar gövdeye konmaz. */
+    MvcTestResult postTx(long userId, long assetId, String type, String date, String qty, String price,
+                         String commission, String fx) {
+        StringBuilder json = new StringBuilder(
+                "{\"assetId\": %d, \"type\": \"%s\", \"tradeDate\": \"%s\", \"quantity\": \"%s\", \"unitPrice\": \"%s\""
+                        .formatted(assetId, type, date, qty, price));
+        if (commission != null) {
+            json.append(", \"commission\": \"").append(commission).append('"');
+        }
+        if (fx != null) {
+            json.append(", \"fxRateTry\": \"").append(fx).append('"');
+        }
+        return post(userId, "/api/investments/transactions", json.append('}').toString());
+    }
+
     /** Yanıt gövdesinden JSONPath ile değer okur; alan null ise null döner. */
     static <T> T path(MvcTestResult result, String jsonPath) {
         try {
