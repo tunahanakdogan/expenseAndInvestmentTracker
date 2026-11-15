@@ -114,6 +114,56 @@ class InvestmentTransactionControllerTest extends InvestmentApiTestBase {
     }
 
     @Test
+    void deletingUsStockBuyNeededByLaterSellReturns422() {
+        long user = newUser();
+        long aapl = createAsset(user, "US_STOCK", "AAPL", "Apple");
+        long buy = created(postTx(user, aapl, "BUY", "2026-01-10", "2", "200", "1", "30"));
+        long sell = created(postTx(user, aapl, "SELL", "2026-02-10", "2", "250", "1", "34"));
+
+        assertRejected(delete(user, TX + "/" + buy), HttpStatus.UNPROCESSABLE_CONTENT,
+                "Bu işlem silinirse eldeki adet eksiye düşer");
+
+        assertThat(delete(user, TX + "/" + sell)).hasStatus(HttpStatus.NO_CONTENT);
+        assertThat(delete(user, TX + "/" + buy)).hasStatus(HttpStatus.NO_CONTENT);
+    }
+
+    @Test
+    void backdatedSellOnUsStockChainReturns422() {
+        long user = newUser();
+        long aapl = createAsset(user, "US_STOCK", "AAPL", "Apple");
+        created(postTx(user, aapl, "BUY", "2026-01-10", "2", "200", "1", "30"));
+        created(postTx(user, aapl, "SELL", "2026-02-10", "2", "250", "1", "34"));
+
+        assertRejected(postTx(user, aapl, "SELL", "2026-01-20", "1", "220", "1", "32"),
+                HttpStatus.UNPROCESSABLE_CONTENT, "Eldeki adetten fazla satılamaz");
+        assertThat(count(get(user, TX + "?assetId=" + aapl))).isEqualTo(2);
+    }
+
+    @Test
+    void newSameDayBuyIsProcessedAfterExistingSameDaySell() {
+        long user = newUser();
+        long thyao = thyao(user);
+        created(postTx(user, thyao, "BUY", "2026-01-10", "10", "100", null, null));
+        created(postTx(user, thyao, "SELL", "2026-02-10", "10", "110", null, null));
+
+        created(postTx(user, thyao, "BUY", "2026-02-10", "5", "50", null, null));
+
+        // Satış önce işlenir: pozisyon kapanır, ortalama yeni alıştan kurulur (alış önce olsaydı 83,33 olurdu).
+        MvcTestResult portfolio = get(user, "/api/portfolio");
+        assertThat(str(portfolio, "$.assets[0].quantity")).isEqualTo("5.00000000");
+        assertThat(str(portfolio, "$.assets[0].averageCost")).isEqualTo("50.0000");
+        assertThat(str(portfolio, "$.assets[0].realizedGain")).isEqualTo("100.0000");
+    }
+
+    @Test
+    void todayInIstanbulIsAccepted() {
+        long user = newUser();
+        String today = java.time.LocalDate.now(java.time.ZoneId.of("Europe/Istanbul")).toString();
+
+        created(postTx(user, thyao(user), "BUY", today, "1", "100", null, null));
+    }
+
+    @Test
     void usStockRequiresFxRate() {
         long user = newUser();
         long aapl = createAsset(user, "US_STOCK", "AAPL", "Apple");
