@@ -2,6 +2,7 @@ package com.tunahan.finans.account;
 
 import com.tunahan.finans.common.BusinessRuleException;
 import com.tunahan.finans.common.NotFoundException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,6 +11,8 @@ import java.util.Objects;
 
 @Service
 public class AccountService {
+
+    private static final String DUPLICATE_NAME = "Bu adda bir hesap zaten var";
 
     private final AccountRepository accounts;
     private final AccountUsage usage;
@@ -36,7 +39,7 @@ public class AccountService {
         String name = request.name().strip();
         requireUniqueName(userId, name, null);
         Account account = new Account(userId, name, request.type(), request.currency(), statementDay(request));
-        return AccountResponse.from(accounts.save(account));
+        return AccountResponse.from(saveWithUniqueName(account));
     }
 
     @Transactional
@@ -55,7 +58,7 @@ public class AccountService {
                     "Harcaması olan hesabın türü, para birimi veya kesim günü değiştirilemez");
         }
         account.update(name, request.type(), request.currency(), statementDay);
-        return AccountResponse.from(account);
+        return AccountResponse.from(saveWithUniqueName(account));
     }
 
     @Transactional
@@ -78,11 +81,24 @@ public class AccountService {
         return request.statementDay();
     }
 
+    /**
+     * Ad ön kontrolü eşzamanlı iki isteği ayıramaz; ikincisi unique kısıtına takılır. Hemen yazılır ki
+     * ihlal burada yakalanıp aynı 422 mesajına çevrilsin (commit anında 500 olmasın).
+     */
+    private Account saveWithUniqueName(Account account) {
+        try {
+            accounts.saveAndFlush(account);
+            return account;
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessRuleException(DUPLICATE_NAME);
+        }
+    }
+
     private void requireUniqueName(Long userId, String name, Long ownId) {
         accounts.findByUserIdAndName(userId, name)
                 .filter(existing -> !existing.getId().equals(ownId))
                 .ifPresent(existing -> {
-                    throw new BusinessRuleException("Bu adda bir hesap zaten var");
+                    throw new BusinessRuleException(DUPLICATE_NAME);
                 });
     }
 }

@@ -8,12 +8,14 @@ import com.tunahan.finans.category.CategoryService;
 import com.tunahan.finans.common.BusinessRuleException;
 import com.tunahan.finans.common.Money;
 import com.tunahan.finans.common.NotFoundException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -50,7 +52,12 @@ class ExpenseService {
         for (int i = 0; i < count; i++) {
             expense.addPayment(periods.get(i), amounts.get(i));
         }
-        return toResponse(expenses.save(expense));
+        try {
+            expenses.saveAndFlush(expense);
+        } catch (DataIntegrityViolationException e) {
+            throw deletedMeanwhile(e);
+        }
+        return toResponse(expense);
     }
 
     @Transactional(readOnly = true)
@@ -87,6 +94,21 @@ class ExpenseService {
     @Transactional
     void delete(Long userId, Long id) {
         expenses.delete(find(userId, id));
+    }
+
+    /**
+     * Hesap ya da kategori, yukarıda bulunduktan sonra başka bir istekle silinmişse FK ihlali olur;
+     * kayıt artık yoktur, yanıt 404'tür. Başka bir ihlal ise olduğu gibi bırakılır.
+     */
+    private static RuntimeException deletedMeanwhile(DataIntegrityViolationException e) {
+        String cause = String.valueOf(e.getMostSpecificCause().getMessage()).toUpperCase(Locale.ROOT);
+        if (cause.contains("FK_EXPENSE_ACCOUNT")) {
+            return new NotFoundException("Hesap bulunamadı");
+        }
+        if (cause.contains("FK_EXPENSE_CATEGORY")) {
+            return new NotFoundException("Kategori bulunamadı");
+        }
+        return e;
     }
 
     /** Başka kullanıcının harcaması da "bulunamadı" sayılır. */

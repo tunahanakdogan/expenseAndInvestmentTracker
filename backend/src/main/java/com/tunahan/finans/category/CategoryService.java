@@ -14,6 +14,8 @@ public class CategoryService {
     private static final List<String> DEFAULT_NAMES = List.of(
             "Market", "Yeme-İçme", "Ulaşım", "Fatura", "Kira", "Sağlık", "Giyim", "Eğlence", "Eğitim", "Diğer");
 
+    private static final String DUPLICATE_NAME = "Bu adda bir kategori zaten var";
+
     private final CategoryRepository categories;
     private final CategoryUsage usage;
 
@@ -51,7 +53,7 @@ public class CategoryService {
     CategoryResponse create(Long userId, CategoryRequest request) {
         String name = request.name().strip();
         requireUniqueName(userId, name, null);
-        return CategoryResponse.from(categories.save(new Category(userId, name)));
+        return CategoryResponse.from(saveWithUniqueName(new Category(userId, name)));
     }
 
     @Transactional
@@ -60,7 +62,7 @@ public class CategoryService {
         String name = request.name().strip();
         requireUniqueName(userId, name, id);
         category.rename(name);
-        return CategoryResponse.from(category);
+        return CategoryResponse.from(saveWithUniqueName(category));
     }
 
     @Transactional
@@ -72,11 +74,24 @@ public class CategoryService {
         categories.delete(category);
     }
 
+    /**
+     * Ad ön kontrolü eşzamanlı iki isteği ayıramaz; ikincisi unique kısıtına takılır. Hemen yazılır ki
+     * ihlal burada yakalanıp aynı 422 mesajına çevrilsin (commit anında 500 olmasın).
+     */
+    private Category saveWithUniqueName(Category category) {
+        try {
+            categories.saveAndFlush(category);
+            return category;
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessRuleException(DUPLICATE_NAME);
+        }
+    }
+
     private void requireUniqueName(Long userId, String name, Long ownId) {
         categories.findByUserIdAndName(userId, name)
                 .filter(existing -> !existing.getId().equals(ownId))
                 .ifPresent(existing -> {
-                    throw new BusinessRuleException("Bu adda bir kategori zaten var");
+                    throw new BusinessRuleException(DUPLICATE_NAME);
                 });
     }
 }
