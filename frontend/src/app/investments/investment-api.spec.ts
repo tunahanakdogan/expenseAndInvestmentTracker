@@ -8,7 +8,9 @@ describe('InvestmentApi', () => {
   let http: HttpTestingController;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     api = TestBed.inject(InvestmentApi);
     http = TestBed.inject(HttpTestingController);
   });
@@ -31,7 +33,9 @@ describe('InvestmentApi', () => {
     let rate: string | null | undefined;
     api.usdRate('2026-11-10').subscribe((r) => (rate = r));
 
-    http.expectOne((r) => r.url === '/api/pricing/rate').flush(null, { status: 404, statusText: 'Not Found' });
+    http
+      .expectOne((r) => r.url === '/api/pricing/rate')
+      .flush(null, { status: 404, statusText: 'Not Found' });
 
     expect(rate).toBeNull();
   });
@@ -40,7 +44,9 @@ describe('InvestmentApi', () => {
     let failed = false;
     api.usdRate('2026-11-10').subscribe({ error: () => (failed = true) });
 
-    http.expectOne((r) => r.url === '/api/pricing/rate').flush(null, { status: 500, statusText: 'Error' });
+    http
+      .expectOne((r) => r.url === '/api/pricing/rate')
+      .flush(null, { status: 500, statusText: 'Error' });
 
     expect(failed).toBe(true);
   });

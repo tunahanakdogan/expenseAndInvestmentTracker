@@ -33,7 +33,9 @@ export class InvestmentApi {
       })
       .pipe(
         map((r) => r.rateTry),
-        catchError((err: HttpErrorResponse) => (err.status === 404 ? of(null) : throwError(() => err))),
+        catchError((err: HttpErrorResponse) =>
+          err.status === 404 ? of(null) : throwError(() => err),
+        ),
       );
   }
 }

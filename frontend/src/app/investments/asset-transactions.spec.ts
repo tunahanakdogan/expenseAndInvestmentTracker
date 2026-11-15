@@ -51,7 +51,10 @@ describe('AssetTransactions', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: LOCALE_ID, useValue: 'tr-TR' },
-        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '5' }) } } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ id: '5' }) } },
+        },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(AssetTransactions);
@@ -66,7 +69,9 @@ describe('AssetTransactions', () => {
   });
 
   function expectTransactions() {
-    return http.expectOne((r) => r.url === '/api/investments/transactions' && r.params.get('assetId') === '5');
+    return http.expectOne(
+      (r) => r.url === '/api/investments/transactions' && r.params.get('assetId') === '5',
+    );
   }
 
   async function load(transactions: InvestmentTransaction[]) {
@@ -135,7 +140,9 @@ describe('AssetTransactions', () => {
       );
     await fixture.whenStable();
 
-    expect(el.querySelector('[role=alert]')?.textContent).toContain('Bu işlem silinirse eldeki adet eksiye düşer');
+    expect(el.querySelector('[role=alert]')?.textContent).toContain(
+      'Bu işlem silinirse eldeki adet eksiye düşer',
+    );
     expect(rows()).toHaveLength(2);
   });
 
@@ -145,7 +152,9 @@ describe('AssetTransactions', () => {
     await load([]);
 
     expect(el.textContent).toContain('Bu varlıkta işlem yok');
-    const button = Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.includes('Varlığı sil'))!;
+    const button = Array.from(el.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Varlığı sil'),
+    )!;
     button.click();
 
     const req = http.expectOne('/api/assets/5');

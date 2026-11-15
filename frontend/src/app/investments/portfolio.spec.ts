@@ -106,7 +106,15 @@ describe('Portfolio', () => {
     expect(cards()).toHaveLength(2);
 
     const thyao = cards()[1];
-    for (const text of ['Türk Hava Yolları', 'THYAO', '15', '110,60 ₺', '1.950,00 ₺', '%17,54', '13.11.2026']) {
+    for (const text of [
+      'Türk Hava Yolları',
+      'THYAO',
+      '15',
+      '110,60 ₺',
+      '1.950,00 ₺',
+      '%17,54',
+      '13.11.2026',
+    ]) {
       expect(thyao.textContent).toContain(text);
     }
     expect(thyao.querySelector('.gain')?.textContent).toContain('%17,54');

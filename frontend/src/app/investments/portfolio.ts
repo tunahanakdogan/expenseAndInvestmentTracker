@@ -22,7 +22,9 @@ import { ASSET_TYPE_LABELS, Portfolio as PortfolioData } from './models';
         <div class="total">
           <span class="label">Toplam değer</span>
           <strong>
-            {{ p.totalMarketValueTry === null ? 'Fiyat yok' : (p.totalMarketValueTry | money: 'TRY') }}
+            {{
+              p.totalMarketValueTry === null ? 'Fiyat yok' : (p.totalMarketValueTry | money: 'TRY')
+            }}
           </strong>
         </div>
         <div>
@@ -33,7 +35,8 @@ import { ASSET_TYPE_LABELS, Portfolio as PortfolioData } from './models';
           <div>
             <span class="label">Getiri</span>
             <span [class]="gainClass(p.totalUnrealizedGainTry)">
-              {{ p.totalUnrealizedGainTry | money: 'TRY' }} {{ formatPct(p.totalUnrealizedGainPctTry) }}
+              {{ p.totalUnrealizedGainTry | money: 'TRY' }}
+              {{ formatPct(p.totalUnrealizedGainPctTry) }}
             </span>
           </div>
         }
@@ -50,7 +53,9 @@ import { ASSET_TYPE_LABELS, Portfolio as PortfolioData } from './models';
             <mat-card appearance="outlined" data-testid="asset-card">
               <mat-card-header>
                 <mat-card-title>{{ item.name }}</mat-card-title>
-                <mat-card-subtitle>{{ item.symbol }} · {{ typeLabels[item.type] }}</mat-card-subtitle>
+                <mat-card-subtitle
+                  >{{ item.symbol }} · {{ typeLabels[item.type] }}</mat-card-subtitle
+                >
               </mat-card-header>
               <mat-card-content>
                 <dl>
@@ -65,14 +70,19 @@ import { ASSET_TYPE_LABELS, Portfolio as PortfolioData } from './models';
                   <div>
                     <dt>Güncel değer</dt>
                     <dd>
-                      {{ item.marketValue === null ? 'Fiyat yok' : (item.marketValue | money: item.currency) }}
+                      {{
+                        item.marketValue === null
+                          ? 'Fiyat yok'
+                          : (item.marketValue | money: item.currency)
+                      }}
                     </dd>
                   </div>
                   @if (item.unrealizedGain !== null) {
                     <div>
                       <dt>Getiri</dt>
                       <dd [class]="gainClass(item.unrealizedGain)">
-                        {{ item.unrealizedGain | money: item.currency }} {{ formatPct(item.unrealizedGainPct) }}
+                        {{ item.unrealizedGain | money: item.currency }}
+                        {{ formatPct(item.unrealizedGainPct) }}
                       </dd>
                     </div>
                   }
@@ -85,7 +95,8 @@ import { ASSET_TYPE_LABELS, Portfolio as PortfolioData } from './models';
                       <div>
                         <dt>Güncel değer (TL)</dt>
                         <dd [class]="gainClass(item.unrealizedGainTry)">
-                          {{ item.marketValueTry | money: 'TRY' }} {{ formatPct(item.unrealizedGainPctTry) }}
+                          {{ item.marketValueTry | money: 'TRY' }}
+                          {{ formatPct(item.unrealizedGainPctTry) }}
                         </dd>
                       </div>
                     }
@@ -93,7 +104,9 @@ import { ASSET_TYPE_LABELS, Portfolio as PortfolioData } from './models';
                   @if (gainClass(item.realizedGain) !== '') {
                     <div>
                       <dt>Gerçekleşen</dt>
-                      <dd [class]="gainClass(item.realizedGain)">{{ item.realizedGain | money: item.currency }}</dd>
+                      <dd [class]="gainClass(item.realizedGain)">
+                        {{ item.realizedGain | money: item.currency }}
+                      </dd>
                     </div>
                   }
                   @if (item.priceDate) {

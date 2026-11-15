@@ -37,7 +37,8 @@ import { Asset, InvestmentTransaction } from './models';
                 <strong>{{ tx.type === 'BUY' ? 'Alış' : 'Satış' }}</strong>
                 <span>{{ tx.tradeDate | date: 'dd.MM.yyyy' }}</span>
                 <span>
-                  {{ formatDecimal(tx.quantity) }} × {{ formatDecimal(tx.unitPrice) }} {{ tx.currency }}
+                  {{ formatDecimal(tx.quantity) }} × {{ formatDecimal(tx.unitPrice) }}
+                  {{ tx.currency }}
                 </span>
                 @if (hasValue(tx.commission)) {
                   <span class="muted">Komisyon: {{ formatDecimal(tx.commission) }}</span>
@@ -46,14 +47,24 @@ import { Asset, InvestmentTransaction } from './models';
                   <span class="muted">Kur: {{ formatDecimal(tx.fxRateTry) }}</span>
                 }
               </div>
-              <button matIconButton type="button" aria-label="İşlemi sil" (click)="deleteTransaction(tx)">
+              <button
+                matIconButton
+                type="button"
+                aria-label="İşlemi sil"
+                (click)="deleteTransaction(tx)"
+              >
                 <mat-icon fontSet="material-symbols-outlined">delete</mat-icon>
               </button>
             </li>
           }
         </ul>
       }
-      <a matButton="filled" class="add" routerLink="/yatirimlar/islem" [queryParams]="{ varlik: assetId }">
+      <a
+        matButton="filled"
+        class="add"
+        routerLink="/yatirimlar/islem"
+        [queryParams]="{ varlik: assetId }"
+      >
         İşlem ekle
       </a>
     }
