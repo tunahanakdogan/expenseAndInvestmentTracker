@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE x [<!ENTITY e SYSTEM "file:///etc/passwd">]>
+<Tarih_Date Tarih="15.11.2026" Date="11/15/2026" Bulten_No="2026/220">
+  <Currency CrossOrder="0" Kod="USD" CurrencyCode="USD">
+    <Unit>1</Unit>
+    <Isim>&e;</Isim>
+    <CurrencyName>US DOLLAR</CurrencyName>
+    <ForexBuying>34.1000</ForexBuying>
+    <ForexSelling>34.1234</ForexSelling>
+    <BanknoteBuying>34.0800</BanknoteBuying>
+    <BanknoteSelling>34.2000</BanknoteSelling>
+  </Currency>
+  <Currency CrossOrder="9" Kod="EUR" CurrencyCode="EUR">
+    <Unit>1</Unit>
+    <Isim>EURO</Isim>
+    <CurrencyName>EURO</CurrencyName>
+    <ForexBuying>36.5000</ForexBuying>
+    <ForexSelling>36.5678</ForexSelling>
+    <BanknoteBuying>36.4000</BanknoteBuying>
+    <BanknoteSelling>36.7000</BanknoteSelling>
+  </Currency>
+  <Currency CrossOrder="15" Kod="JPY" CurrencyCode="JPY">
+    <Unit>100</Unit>
+    <Isim>JAPON YENI</Isim>
+    <CurrencyName>JAPENESE YEN</CurrencyName>
+    <ForexBuying>22.1000</ForexBuying>
+    <ForexSelling>22.1234</ForexSelling>
+    <BanknoteBuying>21.9000</BanknoteBuying>
+    <BanknoteSelling>22.3000</BanknoteSelling>
+  </Currency>
+  <Currency CrossOrder="" Kod="XDR" CurrencyCode="XDR">
+    <Unit>1</Unit>
+    <Isim>SDR</Isim>
+    <CurrencyName>SDR</CurrencyName>
+    <ForexBuying/>
+    <ForexSelling/>
+    <BanknoteBuying/>
+    <BanknoteSelling/>
+  </Currency>
+</Tarih_Date>
