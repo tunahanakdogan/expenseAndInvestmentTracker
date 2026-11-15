@@ -10,7 +10,7 @@ import java.util.Optional;
 
 interface AssetRepository extends JpaRepository<Asset, Long> {
 
-    List<Asset> findByUserIdOrderByNameAsc(Long userId);
+    List<Asset> findByUserId(Long userId);
 
     Optional<Asset> findByIdAndUserId(Long id, Long userId);
 

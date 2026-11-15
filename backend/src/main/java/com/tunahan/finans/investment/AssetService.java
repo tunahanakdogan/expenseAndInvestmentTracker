@@ -7,8 +7,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Collator;
+import java.util.Comparator;
 import java.util.Currency;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 class AssetService {
@@ -21,9 +24,13 @@ class AssetService {
         this.transactions = transactions;
     }
 
+    /** Ada göre, Türkçe sıralamayla (Ç, Ş, İ alfabedeki yerinde; Z'den sonra değil). */
     @Transactional(readOnly = true)
     List<Asset> list(Long userId) {
-        return assets.findByUserIdOrderByNameAsc(userId);
+        Collator turkish = Collator.getInstance(Locale.forLanguageTag("tr-TR"));
+        return assets.findByUserId(userId).stream()
+                .sorted(Comparator.comparing(Asset::getName, turkish))
+                .toList();
     }
 
     @Transactional(readOnly = true)

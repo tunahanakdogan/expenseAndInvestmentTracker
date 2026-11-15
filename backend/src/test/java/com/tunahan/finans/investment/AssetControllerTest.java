@@ -79,6 +79,20 @@ class AssetControllerTest extends InvestmentApiTestBase {
     }
 
     @Test
+    void listIsSortedWithTurkishCollation() {
+        long user = newUser();
+        createAsset(user, "BIST_STOCK", "SISE", "Şişecam");
+        createAsset(user, "BIST_STOCK", "ZOREN", "Zorlu");
+        createAsset(user, "BIST_STOCK", "ASELS", "Aselsan");
+        createAsset(user, "BIST_STOCK", "CIMSA", "Çimsa");
+
+        MvcTestResult result = get(user, "/api/assets");
+
+        assertThat(InvestmentApiTestBase.<java.util.List<String>>path(result, "$[*].name"))
+                .containsExactly("Aselsan", "Çimsa", "Şişecam", "Zorlu");
+    }
+
+    @Test
     void renameChangesOnlyName() {
         long user = newUser();
         long id = createAsset(user, "BIST_STOCK", "THYAO", "Türk Hava Yolları");
