@@ -1,9 +1,15 @@
 // Saf string işlemleri: tutarlar sayıya çevrilmez (bkz. frontend/CLAUDE.md "Para").
 
+/** Eksi işareti yalnız sıfırdan farklı değerde gösterilir ("-0.00" eksi sıfır değil, sıfırdır). */
+function isNegative(value: string): boolean {
+  return value.startsWith('-') && /[1-9]/.test(value);
+}
+
 /** "15.00000000" → "15", "1000.50000000" → "1000,5": sondaki sıfırlar atılır, ondalık ayırıcı virgül. */
 export function formatDecimal(value: string): string {
-  const trimmed = value.includes('.') ? value.replace(/0+$/, '').replace(/\.$/, '') : value;
-  return trimmed.replace('.', ',');
+  const digits = value.replace('-', '');
+  const trimmed = digits.includes('.') ? digits.replace(/0+$/, '').replace(/\.$/, '') : digits;
+  return `${isNegative(value) ? '-' : ''}${trimmed.replace('.', ',')}`;
 }
 
 /** "17.54" → "%17,54", "-3.10" → "-%3,10". */
@@ -11,8 +17,7 @@ export function formatPct(value: string | null): string {
   if (value == null) {
     return '';
   }
-  const negative = value.startsWith('-');
-  return `${negative ? '-' : ''}%${value.replace('-', '').replace('.', ',')}`;
+  return `${isNegative(value) ? '-' : ''}%${value.replace('-', '').replace('.', ',')}`;
 }
 
 /** Getiri rengi için sınıf; sıfır ve "yok" renksiz. */
@@ -20,7 +25,7 @@ export function gainClass(value: string | null): 'gain' | 'loss' | '' {
   if (value == null || !/[1-9]/.test(value)) {
     return '';
   }
-  return value.startsWith('-') ? 'loss' : 'gain';
+  return isNegative(value) ? 'loss' : 'gain';
 }
 
 /**

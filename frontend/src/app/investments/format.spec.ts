@@ -7,6 +7,8 @@ describe('formatDecimal', () => {
     ['1000.50000000', '1000,5'],
     ['100', '100'],
     ['0.00000000', '0'],
+    ['-0.00000000', '0'],
+    ['-1.50000000', '-1,5'],
   ])('%s → %s', (value, expected) => {
     expect(formatDecimal(value)).toBe(expected);
   });
@@ -16,6 +18,8 @@ describe('formatPct', () => {
   it.each([
     ['17.54', '%17,54'],
     ['-3.10', '-%3,10'],
+    ['-0.00', '%0,00'],
+    ['0.00', '%0,00'],
     [null, ''],
   ])('%s → %s', (value, expected) => {
     expect(formatPct(value)).toBe(expected);
