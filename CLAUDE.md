@@ -47,4 +47,5 @@ cd frontend && npm test -- --watch=false  # frontend testleri (Vitest)
 cd frontend && npm run build         # frontend prod build
 ```
 - Backend testleri Testcontainers kullanır; Docker açık olmalı.
+- CI: `.github/workflows/ci.yml` her PR'da `backend` ve `frontend` job'larını çalıştırır; ikisi de `main` ruleset'inde zorunlu kontrol.
 - Backend lokalde kök dizindeki `.env`'i okur (`spring.config.import`); frontend `/api` isteklerini `proxy.conf.json` ile 8080'e yönlendirir.
