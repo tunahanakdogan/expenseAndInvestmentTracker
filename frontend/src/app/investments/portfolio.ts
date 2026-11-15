@@ -183,8 +183,12 @@ import { ASSET_TYPE_LABELS, Portfolio as PortfolioData } from './models';
       margin: 0;
       text-align: right;
     }
+    :host {
+      /* Material'da "başarı" rengi yok; tema --app-success-color tanımlarsa o kullanılır. */
+      --gain-color: var(--app-success-color, #1b7f3b);
+    }
     .gain {
-      color: #1b7f3b;
+      color: var(--gain-color);
     }
     .loss {
       color: var(--mat-sys-error);
