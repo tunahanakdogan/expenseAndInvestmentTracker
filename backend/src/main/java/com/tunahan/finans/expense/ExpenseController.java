@@ -15,13 +15,16 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 
 @RestController
@@ -40,9 +43,22 @@ class ExpenseController {
         return expenses.create(CurrentUser.id(jwt), request);
     }
 
+    /** Dönemin ödemeleri ({@code period}: "YYYY-MM"); harcama tarihine göre değil, ödeme ayına göre. */
+    @GetMapping
+    PeriodPaymentsResponse listByPeriod(@AuthenticationPrincipal Jwt jwt, @RequestParam YearMonth period) {
+        return expenses.listByPeriod(CurrentUser.id(jwt), period);
+    }
+
     @GetMapping("/{id}")
     ExpenseResponse get(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         return expenses.get(CurrentUser.id(jwt), id);
+    }
+
+    @PutMapping("/{id}/payments/{installmentNo}")
+    ExpenseResponse updatePayment(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+                                  @PathVariable int installmentNo,
+                                  @Valid @RequestBody PaymentAmountRequest request) {
+        return expenses.updatePayment(CurrentUser.id(jwt), id, installmentNo, request.amount());
     }
 
     @DeleteMapping("/{id}")
@@ -68,4 +84,19 @@ record PaymentResponse(int installmentNo, String period, BigDecimal amount, Stri
 record ExpenseResponse(Long id, Long accountId, String accountName, Long categoryId, String categoryName,
                        String description, LocalDate date, BigDecimal totalAmount, String currency,
                        int installmentCount, List<PaymentResponse> payments) {
+}
+
+/** Aylık listenin bir satırı: bir ödeme, ait olduğu harcamanın bilgisiyle. */
+record PaymentRow(Long expenseId, int installmentNo, int installmentCount, BigDecimal amount, String currency,
+                  LocalDate expenseDate, String description, String categoryName, String accountName) {
+}
+
+record CurrencyTotal(String currency, BigDecimal amount) {
+}
+
+/** {@code totals}: para birimi başına ayrı toplam (D-006), para birimi koduna göre sıralı. */
+record PeriodPaymentsResponse(String period, List<PaymentRow> payments, List<CurrencyTotal> totals) {
+}
+
+record PaymentAmountRequest(@NotNull @Positive @Digits(integer = 15, fraction = 2) BigDecimal amount) {
 }

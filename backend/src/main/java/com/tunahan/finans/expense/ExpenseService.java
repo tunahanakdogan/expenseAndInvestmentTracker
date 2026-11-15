@@ -6,6 +6,7 @@ import com.tunahan.finans.account.AccountType;
 import com.tunahan.finans.category.Category;
 import com.tunahan.finans.category.CategoryService;
 import com.tunahan.finans.common.BusinessRuleException;
+import com.tunahan.finans.common.Money;
 import com.tunahan.finans.common.NotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 @Service
 class ExpenseService {
@@ -55,6 +58,32 @@ class ExpenseService {
         return toResponse(find(userId, id));
     }
 
+    @Transactional(readOnly = true)
+    PeriodPaymentsResponse listByPeriod(Long userId, YearMonth period) {
+        List<ExpensePayment> payments = expenses.findPaymentsByPeriod(userId, period.toString());
+
+        Map<String, Money> totals = new TreeMap<>();
+        for (ExpensePayment payment : payments) {
+            totals.merge(payment.getCurrency(), new Money(payment.getAmount(), payment.getCurrency()), Money::add);
+        }
+        return new PeriodPaymentsResponse(period.toString(),
+                payments.stream().map(ExpenseService::toRow).toList(),
+                totals.values().stream().map(t -> new CurrencyTotal(t.currency(), scaled(t.amount()))).toList());
+    }
+
+    /** Tek taksitin tutarını değiştirir; harcama toplamı ödemelerin toplamı olarak yeniden hesaplanır. */
+    @Transactional
+    ExpenseResponse updatePayment(Long userId, Long expenseId, int installmentNo, BigDecimal amount) {
+        Expense expense = find(userId, expenseId);
+        ExpensePayment payment = expense.getPayments().stream()
+                .filter(p -> p.getInstallmentNo() == installmentNo)
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("Taksit bulunamadı"));
+        payment.changeAmount(amount);
+        expense.recalculateTotal();
+        return toResponse(expense);
+    }
+
     @Transactional
     void delete(Long userId, Long id) {
         expenses.delete(find(userId, id));
@@ -75,6 +104,13 @@ class ExpenseService {
                 expense.getCategory().getId(), expense.getCategory().getName(),
                 expense.getDescription(), expense.getExpenseDate(), scaled(expense.getTotalAmount()),
                 expense.getCurrency(), expense.getInstallmentCount(), payments);
+    }
+
+    private static PaymentRow toRow(ExpensePayment payment) {
+        Expense expense = payment.getExpense();
+        return new PaymentRow(expense.getId(), payment.getInstallmentNo(), expense.getInstallmentCount(),
+                scaled(payment.getAmount()), payment.getCurrency(), expense.getExpenseDate(),
+                expense.getDescription(), expense.getCategory().getName(), expense.getAccount().getName());
     }
 
     /** İstek tutarları en çok 2, kolonlar 4 hane olduğu için yuvarlama gerekmez; yalnız sıfırla doldurur. */

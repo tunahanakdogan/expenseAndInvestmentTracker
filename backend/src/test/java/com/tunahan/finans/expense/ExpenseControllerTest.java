@@ -221,6 +221,133 @@ class ExpenseControllerTest {
     }
 
     @Test
+    void periodListReturnsThatMonthsPaymentsNewestFirstWithTotalsPerCurrency() {
+        long card = createAccount(user, CARD_15);
+        long cash = createAccount(user, CASH);
+        long bank = createAccount(user, USD_BANK);
+        long phone = idOf(post(user, """
+                {"accountId":%d,"categoryId":%d,"amount":"600.00","date":"2026-10-10","installmentCount":6,
+                 "description":"Telefon"}""".formatted(card, category)));
+        long b = idOf(createExpense(user, cash, category, "50.00", "2026-11-20", 1));
+        long c = idOf(createExpense(user, bank, category, "20.00", "2026-11-05", 1));
+        createExpense(user, cash, category, "999.00", "2026-12-01", 1);
+        reload();
+
+        MvcTestResult listed = list(user, "2026-11");
+
+        assertThat(listed).hasStatusOk();
+        assertThat(listed).bodyJson().extractingPath("$.period").isEqualTo("2026-11");
+        assertThat(listed).bodyJson().extractingPath("$.payments[*].expenseId")
+                .isEqualTo(List.of((int) b, (int) c, (int) phone));
+        assertThat(listed).bodyJson().extractingPath("$.payments[*].expenseDate")
+                .isEqualTo(List.of("2026-11-20", "2026-11-05", "2026-10-10"));
+        assertThat(listed).bodyJson().extractingPath("$.payments[2].installmentNo").isEqualTo(2);
+        assertThat(listed).bodyJson().extractingPath("$.payments[2].installmentCount").isEqualTo(6);
+        assertThat(listed).bodyJson().extractingPath("$.payments[2].amount").isEqualTo("100.0000");
+        assertThat(listed).bodyJson().extractingPath("$.payments[2].currency").isEqualTo("TRY");
+        assertThat(listed).bodyJson().extractingPath("$.payments[2].description").isEqualTo("Telefon");
+        assertThat(listed).bodyJson().extractingPath("$.payments[2].categoryName").isEqualTo("Elektronik");
+        assertThat(listed).bodyJson().extractingPath("$.payments[2].accountName").isEqualTo("Bonus");
+        assertThat(listed).bodyJson().extractingPath("$.payments[1].currency").isEqualTo("USD");
+        assertThat(listed).bodyJson().extractingPath("$.totals[*].currency").isEqualTo(List.of("TRY", "USD"));
+        assertThat(listed).bodyJson().extractingPath("$.totals[*].amount").isEqualTo(List.of("150.0000", "20.0000"));
+    }
+
+    @Test
+    void sameDayExpensesAreListedNewestFirst() {
+        long cash = createAccount(user, CASH);
+        long first = idOf(createExpense(user, cash, category, "1.00", "2026-11-10", 1));
+        long second = idOf(createExpense(user, cash, category, "2.00", "2026-11-10", 1));
+        reload();
+
+        assertThat(list(user, "2026-11")).bodyJson().extractingPath("$.payments[*].expenseId")
+                .isEqualTo(List.of((int) second, (int) first));
+    }
+
+    @Test
+    void emptyPeriodReturnsEmptyPaymentsAndTotals() {
+        MvcTestResult listed = list(user, "2030-01");
+
+        assertThat(listed).hasStatusOk();
+        assertThat(listed).bodyJson().extractingPath("$.payments.length()").isEqualTo(0);
+        assertThat(listed).bodyJson().extractingPath("$.totals.length()").isEqualTo(0);
+    }
+
+    @Test
+    void missingOrInvalidPeriodReturns400() {
+        assertThat(mvc.get().uri("/api/expenses").with(asUser(user))).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(list(user, "2026-13")).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(list(user, "kasim")).hasStatus(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void otherUsersPaymentsAreNotListed() {
+        long cash = createAccount(user, CASH);
+        createExpense(user, cash, category, "50.00", "2026-11-20", 1);
+        reload();
+
+        assertThat(list(newUser(jdbc), "2026-11")).hasStatusOk()
+                .bodyJson().extractingPath("$.payments.length()").isEqualTo(0);
+    }
+
+    @Test
+    void editingInstallmentRecalculatesTotal() {
+        long card = createAccount(user, CARD_15);
+        long id = idOf(createExpense(user, card, category, "100.00", "2026-11-10", 3));
+        reload();
+
+        MvcTestResult edited = putPayment(user, id, 3, "40.00");
+
+        assertThat(edited).hasStatusOk();
+        assertThat(edited).bodyJson().extractingPath("$.totalAmount").isEqualTo("106.6600");
+        assertThat(edited).bodyJson().extractingPath("$.payments[*].amount")
+                .isEqualTo(List.of("33.3300", "33.3300", "40.0000"));
+
+        reload();
+        MvcTestResult found = get(user, id);
+        assertThat(found).bodyJson().extractingPath("$.totalAmount").isEqualTo("106.6600");
+        assertThat(found).bodyJson().extractingPath("$.payments[2].amount").isEqualTo("40.0000");
+        assertThat(found).bodyJson().extractingPath("$.payments[0].amount").isEqualTo("33.3300");
+        assertThat(list(user, "2027-01")).bodyJson().extractingPath("$.totals[0].amount").isEqualTo("40.0000");
+    }
+
+    @Test
+    void editingInstallmentWithInvalidAmountReturns400() {
+        long card = createAccount(user, CARD_15);
+        long id = idOf(createExpense(user, card, category, "100.00", "2026-11-10", 3));
+
+        for (String amount : List.of("0", "-1", "1.005")) {
+            assertThat(putPayment(user, id, 1, amount)).as(amount).hasStatus(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @Test
+    void editingUnknownInstallmentReturns404() {
+        long card = createAccount(user, CARD_15);
+        long id = idOf(createExpense(user, card, category, "100.00", "2026-11-10", 3));
+
+        assertThat(putPayment(user, id, 9, "40.00")).hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.detail").isEqualTo("Taksit bulunamadı");
+    }
+
+    @Test
+    void editingOtherUsersExpenseReturns404() {
+        long card = createAccount(user, CARD_15);
+        long id = idOf(createExpense(user, card, category, "100.00", "2026-11-10", 3));
+
+        assertThat(putPayment(newUser(jdbc), id, 1, "40.00")).hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    private MvcTestResult list(long userId, String period) {
+        return mvc.get().uri("/api/expenses?period={period}", period).with(asUser(userId)).exchange();
+    }
+
+    private MvcTestResult putPayment(long userId, long id, int installmentNo, String amount) {
+        return mvc.put().uri("/api/expenses/{id}/payments/{no}", id, installmentNo).with(asUser(userId))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"amount\":\"" + amount + "\"}").exchange();
+    }
+
+    @Test
     void withoutTokenReturns401() {
         assertThat(mvc.get().uri("/api/expenses?period=2026-11")).hasStatus(HttpStatus.UNAUTHORIZED);
     }
