@@ -70,7 +70,9 @@ class PortfolioService {
             boolean usStock = asset.getType() == AssetType.US_STOCK;
             Position pos = PositionCalculator.calculate(transactions.tradesOf(userId, asset.getId()), usStock);
             boolean held = pos.quantity().signum() > 0;
-            Optional<PricePoint> price = prices.latestPrice(asset.getType(), asset.getSymbol());
+            // Fiyat varlığın para biriminde değilse adetle çarpmak yanlış tutar üretir; "fiyat yok" sayılır.
+            Optional<PricePoint> price = prices.latestPrice(asset.getType(), asset.getSymbol())
+                    .filter(p -> p.currency().equals(asset.getCurrency()));
 
             BigDecimal marketValue = !held ? BigDecimal.ZERO
                     : price.map(p -> pos.quantity().multiply(p.price())).orElse(null);

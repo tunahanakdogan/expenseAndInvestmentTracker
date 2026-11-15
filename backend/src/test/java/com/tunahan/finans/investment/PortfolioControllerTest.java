@@ -192,6 +192,24 @@ class PortfolioControllerTest extends InvestmentApiTestBase {
     }
 
     @Test
+    void priceInDifferentCurrencyIsTreatedAsMissing() {
+        long user = newUser();
+        long thyao = createAsset(user, "BIST_STOCK", "THYAO", "Türk Hava Yolları");
+        tx(user, thyao, "BUY", "2026-01-05", "10", "100", "0", null);
+        // TRY varlığa USD fiyat: adetle çarpılırsa anlamsız bir TL değeri çıkar.
+        when(prices.latestPrice(AssetType.BIST_STOCK, "THYAO"))
+                .thenReturn(Optional.of(new PricePoint(new BigDecimal("3"), "USD", PRICE_DATE)));
+
+        MvcTestResult r = portfolio(user);
+
+        assertThat(str(r, "$.assets[0].costBasis")).isEqualTo("1000.0000");
+        assertNull(r, "$.assets[0].", "currentPrice", "priceDate", "marketValue", "unrealizedGain",
+                "unrealizedGainPct");
+        assertNull(r, "$.", "totalMarketValueTry");
+        assertThat(InvestmentApiTestBase.<Boolean>path(r, "$.missingPrices")).isTrue();
+    }
+
+    @Test
     void portfolioIsPerUser() {
         seedThyaoAndAapl(newUser());
 
