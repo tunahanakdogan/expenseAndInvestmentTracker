@@ -3,6 +3,7 @@ package com.tunahan.finans.investment;
 import com.tunahan.finans.common.AssetType;
 import com.tunahan.finans.common.BusinessRuleException;
 import com.tunahan.finans.common.NotFoundException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,7 +48,12 @@ class AssetService {
         if (assets.existsByUserIdAndTypeAndSymbol(userId, type, symbol)) {
             throw new BusinessRuleException("Bu varlık zaten kayıtlı");
         }
-        return assets.save(new Asset(userId, type, symbol, name.strip()));
+        try {
+            return assets.saveAndFlush(new Asset(userId, type, symbol, name.strip()));
+        } catch (DataIntegrityViolationException e) {
+            // Eşzamanlı iki istek yukarıdaki kontrolü birlikte geçti; unique kısıtı ikincisini durdurdu.
+            throw new BusinessRuleException("Bu varlık zaten kayıtlı");
+        }
     }
 
     @Transactional
