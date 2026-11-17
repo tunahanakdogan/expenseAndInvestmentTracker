@@ -11,13 +11,14 @@ import { Categories } from './categories';
   imports: [Accounts, Categories, MatIconModule, RouterLink],
   template: `
     <header>
-      <a class="app-icon-button" routerLink="/harcamalar" aria-label="Geri">
+      <a class="app-icon-button app-mobile-only" routerLink="/harcamalar" aria-label="Geri">
         <mat-icon fontSet="material-symbols-outlined" aria-hidden="true">arrow_back</mat-icon>
       </a>
       <h1>Ayarlar</h1>
     </header>
 
-    <section aria-labelledby="gorunum">
+    <div class="grid">
+    <section class="gorunum" aria-labelledby="gorunum">
       <h2 id="gorunum" class="app-label">Görünüm</h2>
       <div class="themes" role="radiogroup" aria-label="Tema">
         @for (option of options; track option.mode) {
@@ -42,15 +43,15 @@ import { Categories } from './categories';
       <p class="hint">Sistem: telefonun açık/koyu ayarını izler.</p>
     </section>
 
-    <section aria-labelledby="hesaplar">
+    <section class="hesaplar" aria-labelledby="hesaplar">
       <app-accounts />
     </section>
 
-    <section aria-labelledby="kategoriler">
+    <section class="kategoriler" aria-labelledby="kategoriler">
       <app-categories />
     </section>
 
-    <footer>
+    <footer class="oturum">
       <div class="session">
         @if (username(); as name) {
           <span>Oturum: {{ name }}</span>
@@ -61,6 +62,7 @@ import { Categories } from './categories';
       </div>
       <button type="button" class="logout" (click)="auth.logout()">Çıkış yap</button>
     </footer>
+    </div>
   `,
   styles: `
     :host {
@@ -167,6 +169,39 @@ import { Categories } from './categories';
       color: var(--app-text);
       font: 600 15px var(--app-font);
       cursor: pointer;
+    }
+    @media (min-width: 840px) {
+      :host {
+        max-width: 1200px;
+        padding: 28px 24px 40px;
+      }
+      header {
+        padding: 0;
+      }
+      h1 {
+        font: 700 24px var(--app-font);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: auto auto 1fr;
+        grid-template-areas:
+          'gorunum kategoriler'
+          'hesaplar kategoriler'
+          'oturum kategoriler';
+        column-gap: 32px;
+      }
+      section {
+        padding: 22px 0 0;
+      }
+      .gorunum { grid-area: gorunum; }
+      .hesaplar { grid-area: hesaplar; }
+      .kategoriler { grid-area: kategoriler; }
+      .oturum {
+        grid-area: oturum;
+        align-self: start;
+        padding: 32px 0 0;
+      }
     }
     .logout:focus-visible {
       outline: 3px solid var(--app-accent-text);
