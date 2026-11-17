@@ -152,7 +152,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = { TRY: 'â‚º', USD: '$', EUR: 'â
           }
           <label class="field">
             <span class="app-label">Tarih</span>
-            <input class="control" type="date" aria-label="Tarih (web)" [value]="date()" (input)="onDate($event)" />
+            <input class="control" type="date" aria-label="Tarih" [value]="date()" (input)="onDate($event)" />
           </label>
         </div>
 
