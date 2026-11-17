@@ -1,8 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MatBottomSheetRef } from '@angular/material/bottom-sheet';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { Account } from '../settings/account-api';
 import { Category } from '../settings/category-api';
 import { ExpenseEntry, LAST_ACCOUNT_KEY } from './expense-entry';
@@ -20,7 +19,7 @@ describe('ExpenseEntry', () => {
   let fixture: ComponentFixture<ExpenseEntry>;
   let http: HttpTestingController;
   let el: HTMLElement;
-  let sheetRef: { dismiss: ReturnType<typeof vi.fn> };
+  let navigate: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     localStorage.clear();
@@ -34,16 +33,11 @@ describe('ExpenseEntry', () => {
   });
 
   async function setup(accounts: Account[] = ACCOUNTS) {
-    sheetRef = { dismiss: vi.fn() };
     await TestBed.configureTestingModule({
       imports: [ExpenseEntry],
-      providers: [
-        provideRouter([]),
-        provideHttpClient(),
-        provideHttpClientTesting(),
-        { provide: MatBottomSheetRef, useValue: sheetRef },
-      ],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
+    navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     fixture = TestBed.createComponent(ExpenseEntry);
     http = TestBed.inject(HttpTestingController);
     el = fixture.nativeElement;
@@ -52,14 +46,27 @@ describe('ExpenseEntry', () => {
     await fixture.whenStable();
   }
 
-  const input = (name: string) => el.querySelector<HTMLInputElement>(`input[formControlName=${name}]`)!;
-  const installmentSelect = () => el.querySelector<HTMLSelectElement>('select[formControlName=installmentCount]');
-  const accountSelect = () => el.querySelector<HTMLSelectElement>('select[formControlName=accountId]')!;
-  const saveButton = () => el.querySelector<HTMLButtonElement>('button[type=submit]')!;
+  const installmentSelect = () => el.querySelector<HTMLSelectElement>('select[aria-label=Taksit]');
+  const saveButton = () => el.querySelector<HTMLButtonElement>('button.save')!;
+  const amountText = () => el.querySelector('.amount')!.textContent!.replace(/\s+/g, ' ').trim();
+  const chip = (name: string) =>
+    Array.from(el.querySelectorAll<HTMLButtonElement>('button.app-chip')).find((c) => c.textContent?.trim() === name)!;
 
-  function type(name: string, value: string) {
-    input(name).value = value;
-    input(name).dispatchEvent(new Event('input'));
+  async function tap(...labels: string[]) {
+    for (const label of labels) {
+      el.querySelector<HTMLButtonElement>(`.keypad button[aria-label="${label}"]`)!.click();
+    }
+    await fixture.whenStable();
+  }
+
+  async function pickCategory(name: string) {
+    chip(name).click();
+    await fixture.whenStable();
+  }
+
+  async function pickAccount(name: string) {
+    chip(name).click();
+    await fixture.whenStable();
   }
 
   async function select(element: HTMLSelectElement, value: string) {
@@ -68,9 +75,10 @@ describe('ExpenseEntry', () => {
     await fixture.whenStable();
   }
 
-  async function pickCategory(name: string) {
-    const chip = Array.from(el.querySelectorAll('mat-chip-option')).find((c) => c.textContent?.includes(name))!;
-    chip.querySelector('button')!.click();
+  async function setText(selector: string, value: string) {
+    const input = el.querySelector<HTMLInputElement>(selector)!;
+    input.value = value;
+    input.dispatchEvent(new Event('input'));
     await fixture.whenStable();
   }
 
@@ -78,6 +86,39 @@ describe('ExpenseEntry', () => {
     saveButton().click();
     await fixture.whenStable();
   }
+
+  async function pressPhysical(key: string, target: EventTarget = document.body) {
+    target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    await fixture.whenStable();
+  }
+
+  it('tuş takımı tutarı kurar, virgül tek, en çok 2 ondalık, sil çalışır', async () => {
+    await setup();
+
+    await tap('1', '2', '3', '4');
+    expect(amountText()).toContain('1.234');
+    await tap('Virgül', 'Virgül', '5', '0', '9');
+    expect(amountText()).toContain('1.234,50');
+    await tap('Sil', 'Sil', 'Sil');
+    expect(amountText()).toContain('1.234');
+    expect(amountText()).not.toContain(',');
+  });
+
+  it('fiziksel klavye rakam, virgül ve Backspace ile çalışır; alanlardayken tuşları yutmaz', async () => {
+    await setup();
+
+    await pressPhysical('4');
+    await pressPhysical('2');
+    await pressPhysical(',');
+    await pressPhysical('5');
+    await pressPhysical('x');
+    expect(amountText()).toContain('42,5');
+    await pressPhysical('Backspace');
+    expect(amountText()).toContain('42,');
+
+    await pressPhysical('9', el.querySelector('input.description')!);
+    expect(amountText()).not.toContain('429');
+  });
 
   it('tutar boşken kaydetmez ve "Tutar gerekli" gösterir', async () => {
     await setup();
@@ -88,48 +129,63 @@ describe('ExpenseEntry', () => {
     expect(el.textContent).toContain('Tutar gerekli');
   });
 
-  it('sıfır veya geçersiz tutarda "Geçerli bir tutar gir" gösterir', async () => {
+  it('sıfır tutarda "Geçerli bir tutar gir" gösterir', async () => {
     await setup();
     await pickCategory('Market');
+    await tap('0', 'Virgül', '0', '0');
+    await save();
 
-    for (const value of ['0', '0,00', 'abc', '1,234.56']) {
-      type('amount', value);
-      await save();
-
-      http.expectNone('/api/expenses');
-      expect(el.textContent).toContain('Geçerli bir tutar gir');
-    }
+    http.expectNone('/api/expenses');
+    expect(el.textContent).toContain('Geçerli bir tutar gir');
   });
 
   it('kategori seçilmeden kaydetmez', async () => {
     await setup();
     expect(el.textContent).not.toContain('Kategori seç');
 
-    type('amount', '12,5');
+    await tap('1', '2');
     await save();
 
     http.expectNone('/api/expenses');
     expect(el.textContent).toContain('Kategori seç');
   });
 
-  it('taksit alanı yalnız kredi kartında görünür', async () => {
+  it('kategori çipi aria-pressed ile seçimi bildirir', async () => {
+    await setup();
+    await pickCategory('Ulaşım');
+
+    expect(chip('Ulaşım').getAttribute('aria-pressed')).toBe('true');
+    expect(chip('Market').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('taksit seçimi yalnız kredi kartında görünür', async () => {
     await setup();
     expect(installmentSelect()).toBeNull();
 
-    await select(accountSelect(), '2');
+    await pickAccount('Bonus');
     expect(installmentSelect()).not.toBeNull();
+    expect(installmentSelect()!.options.length).toBe(36);
 
-    await select(accountSelect(), '1');
+    await pickAccount('Cüzdan');
     expect(installmentSelect()).toBeNull();
+  });
+
+  it('kredi kartında ekstre ayını gösterir', async () => {
+    await setup();
+    await pickAccount('Bonus');
+    expect(el.querySelector('.note')?.textContent).toContain('ekstre Kasım 2026');
+
+    await setText('label.date input', '2026-11-20');
+    expect(el.querySelector('.note')?.textContent).toContain('ekstre Aralık 2026');
   });
 
   it("karttan nakde dönünce taksit 1'e döner", async () => {
     await setup();
-    type('amount', '100');
+    await tap('1', '0', '0');
     await pickCategory('Market');
-    await select(accountSelect(), '2');
+    await pickAccount('Bonus');
     await select(installmentSelect()!, '6');
-    await select(accountSelect(), '1');
+    await pickAccount('Cüzdan');
     await save();
 
     const req = http.expectOne('/api/expenses');
@@ -138,13 +194,13 @@ describe('ExpenseEntry', () => {
     req.flush({});
   });
 
-  it('geçerli formu gönderir, son hesabı saklar ve kapanır', async () => {
+  it('geçerli formu gönderir, son hesabı saklar ve listeye döner', async () => {
     await setup();
-    type('amount', '1.234,56');
+    await tap('1', '2', '3', '4', 'Virgül', '5', '6');
     await pickCategory('Market');
-    await select(accountSelect(), '2');
+    await pickAccount('Bonus');
     await select(installmentSelect()!, '3');
-    type('date', '2026-11-15');
+    await setText('label.date input', '2026-11-14');
     await save();
 
     const req = http.expectOne('/api/expenses');
@@ -153,7 +209,7 @@ describe('ExpenseEntry', () => {
       accountId: 2,
       categoryId: 10,
       amount: '1234.56',
-      date: '2026-11-15',
+      date: '2026-11-14',
       installmentCount: 3,
       description: null,
     });
@@ -161,14 +217,25 @@ describe('ExpenseEntry', () => {
 
     expect(localStorage.getItem(LAST_ACCOUNT_KEY)).toBe('2');
     expect(LAST_ACCOUNT_KEY).toBe('finans.lastAccountId');
-    expect(sheetRef.dismiss).toHaveBeenCalledWith(true);
+    expect(navigate).toHaveBeenCalledWith(['/harcamalar']);
+  });
+
+  it('sondaki virgülü ("12,") yok sayar', async () => {
+    await setup();
+    await tap('1', '2', 'Virgül');
+    await pickCategory('Market');
+    await save();
+
+    const req = http.expectOne('/api/expenses');
+    expect(req.request.body.amount).toBe('12');
+    req.flush({});
   });
 
   it('açıklamayı kırparak gönderir', async () => {
     await setup();
-    type('amount', '50');
+    await tap('5', '0');
     await pickCategory('Ulaşım');
-    type('description', '  Taksi ');
+    await setText('input.description', '  Taksi ');
     await save();
 
     const req = http.expectOne('/api/expenses');
@@ -187,7 +254,7 @@ describe('ExpenseEntry', () => {
     localStorage.setItem(LAST_ACCOUNT_KEY, '2');
     await setup();
 
-    expect(accountSelect().value).toBe('2');
+    expect(chip('Bonus').getAttribute('aria-pressed')).toBe('true');
     expect(installmentSelect()).not.toBeNull();
   });
 
@@ -195,7 +262,7 @@ describe('ExpenseEntry', () => {
     localStorage.setItem(LAST_ACCOUNT_KEY, '99');
     await setup();
 
-    expect(accountSelect().value).toBe('1');
+    expect(chip('Cüzdan').getAttribute('aria-pressed')).toBe('true');
   });
 
   it('localStorage kullanılamıyorsa form yine çalışır ve kaydeder', async () => {
@@ -207,32 +274,36 @@ describe('ExpenseEntry', () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(blocked);
     try {
       await setup();
-      expect(accountSelect().value).toBe('1');
+      expect(chip('Cüzdan').getAttribute('aria-pressed')).toBe('true');
 
-      type('amount', '12,5');
+      await tap('1', '2');
       await pickCategory('Market');
       await save();
       http.expectOne('/api/expenses').flush({});
 
       expect(getItem).toHaveBeenCalledWith(LAST_ACCOUNT_KEY);
       expect(setItem).toHaveBeenCalledWith(LAST_ACCOUNT_KEY, '1');
-      expect(sheetRef.dismiss).toHaveBeenCalledWith(true);
+      expect(navigate).toHaveBeenCalledWith(['/harcamalar']);
     } finally {
       getItem.mockRestore();
       setItem.mockRestore();
     }
   });
 
-  it('tarih varsayılanı yerel bugündür', async () => {
+  it('tarih varsayılanı yerel bugündür ve "Bugün" yazar', async () => {
     vi.setSystemTime(new Date(2026, 10, 15, 0, 30));
     await setup();
 
-    expect(input('date').value).toBe('2026-11-15');
+    expect(el.querySelector<HTMLInputElement>('label.date input')!.value).toBe('2026-11-15');
+    expect(el.querySelector('label.date')!.textContent).toContain('Bugün');
+
+    await setText('label.date input', '2026-11-08');
+    expect(el.querySelector('label.date')!.textContent).toContain('8 Kas');
   });
 
   it('kaydederken düğme devre dışıdır ve çift dokunuş tek istek atar', async () => {
     await setup();
-    type('amount', '12,5');
+    await tap('1', '2');
     await pickCategory('Market');
     await save();
     await save();
@@ -246,7 +317,7 @@ describe('ExpenseEntry', () => {
 
   it('422 yanıtında sunucu mesajını gösterir', async () => {
     await setup();
-    type('amount', '12,5');
+    await tap('1', '2');
     await pickCategory('Market');
     await save();
 
@@ -259,9 +330,15 @@ describe('ExpenseEntry', () => {
     await fixture.whenStable();
 
     expect(el.querySelector('[role=alert]')?.textContent).toContain('Taksit yalnız kredi kartında yapılabilir');
-    expect(sheetRef.dismiss).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
     expect(saveButton().disabled).toBe(false);
     expect(localStorage.getItem(LAST_ACCOUNT_KEY)).toBeNull();
+  });
+
+  it('kapat düğmesi listeye bağlanır', async () => {
+    await setup();
+
+    expect(el.querySelector('a[aria-label="Kapat"]')?.getAttribute('href')).toBe('/harcamalar');
   });
 
   it('hesap yokken yönlendirme mesajı gösterir', async () => {
@@ -269,6 +346,6 @@ describe('ExpenseEntry', () => {
 
     expect(el.textContent).toContain("Önce Ayarlar'dan bir hesap ekle");
     expect(el.querySelector('a[href="/ayarlar"]')).not.toBeNull();
-    expect(el.querySelector('input[formControlName=amount]')).toBeNull();
+    expect(el.querySelector('.keypad')).toBeNull();
   });
 });
