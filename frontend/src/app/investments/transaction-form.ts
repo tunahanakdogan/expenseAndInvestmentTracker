@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, HostListener, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
@@ -63,6 +63,7 @@ function decimal(maxFraction: number, positive: boolean): ValidatorFn {
     RouterLink,
   ],
   template: `
+    <div class="app-sheet"><div class="app-sheet-panel">
     <header>
       <a class="app-icon-button" routerLink="/yatirimlar" aria-label="Geri">
         <mat-icon fontSet="material-symbols-outlined">arrow_back</mat-icon>
@@ -240,14 +241,22 @@ function decimal(maxFraction: number, positive: boolean): ValidatorFn {
         {{ saving() ? 'Kaydediliyor…' : 'Kaydet' }}
       </button>
     </form>
+    </div></div>
   `,
   styles: `
     :host {
       display: block;
-      box-sizing: border-box;
+    }
+    .app-sheet-panel {
       max-width: 480px;
       margin: 0 auto;
       padding: 18px 20px 24px;
+    }
+    @media (min-width: 840px) {
+      .app-sheet-panel {
+        max-width: 480px;
+        padding: 24px;
+      }
     }
     header {
       display: flex;
@@ -420,6 +429,14 @@ export class TransactionForm {
   private readonly assetApi = inject(AssetApi);
   private readonly investmentApi = inject(InvestmentApi);
   private readonly router = inject(Router);
+
+  /** Esc: sayfayı (web'de paneli) kapatır; açık öneri listesi Esc'yi kendisi işler. */
+  @HostListener('document:keydown.escape', ['$event'])
+  protected close(event: Event): void {
+    if (!event.defaultPrevented) {
+      void this.router.navigateByUrl('/yatirimlar');
+    }
+  }
 
   private readonly instrumentApi = inject(InstrumentApi);
 
