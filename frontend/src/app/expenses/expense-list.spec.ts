@@ -168,4 +168,31 @@ describe('ExpenseList', () => {
     expect(el.textContent).not.toContain('Liste yüklenemedi');
     expect(el.textContent).toContain('Telefon');
   });
+
+  it('web: sayfa başlığı ve dikey kategori listesi (ad, tutar, %, çubuk)', async () => {
+    await flush('2026-11', NOVEMBER);
+
+    expect(el.querySelector('h1.page-title')?.textContent).toBe('Harcamalar');
+    const cats = Array.from(el.querySelectorAll('.cats .cat'));
+    expect(cats.map((c) => c.querySelector('.cat-name')?.textContent)).toEqual(['Elektronik', 'Giyim']);
+    expect(cats[1].querySelector('.cat-amount')?.textContent?.trim()).toBe('25,00 ₺');
+    expect(cats[1].querySelector('.cat-pct')?.textContent?.trim()).toBe('%25,00');
+    expect(cats[1].querySelector<HTMLElement>('.fill')!.style.width).toBe('25%');
+    expect(el.querySelector('.cats')?.classList).toContain('app-web-only');
+    expect(el.querySelector('.tiles')?.classList).toContain('app-mobile-only');
+  });
+
+  it('web: ödemeler tablosu sütunları ve satırları gösterir, satır detaya bağlanır', async () => {
+    await flush('2026-11', NOVEMBER);
+
+    const heads = Array.from(el.querySelectorAll('table.ptable thead th')).map((th) => th.textContent?.trim());
+    expect(heads).toEqual(['Tarih', 'Açıklama', 'Kategori', 'Hesap', 'Taksit', 'Tutar']);
+    const rows = Array.from(el.querySelectorAll('table.ptable tbody tr'));
+    expect(rows.length).toBe(2);
+    const cells = Array.from(rows[1].querySelectorAll('td')).map((td) => td.textContent?.replace(/\s+/g, ' ').trim());
+    expect(cells).toEqual(['10 Eki', 'TTelefon', 'Elektronik', 'Bonus', '2/6 taksit', '100,00 ₺']);
+    expect(rows[1].querySelector('a')?.getAttribute('href')).toBe('/harcamalar/5');
+    expect(rows[1].querySelector('td.num')?.classList).toContain('app-num');
+    expect(el.querySelector('table.ptable')?.classList).toContain('app-web-only');
+  });
 });
