@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -24,12 +24,14 @@ const CURRENCY_SYMBOLS: Record<string, string> = { TRY: '₺', USD: '$', EUR: '�
   imports: [MatIconModule, RouterLink],
   host: { '(document:keydown)': 'onKeydown($event)' },
   template: `
+    <div class="app-sheet"><div class="app-sheet-panel page">
     <header>
       <a class="app-icon-button" routerLink="/harcamalar" aria-label="Kapat">
         <mat-icon fontSet="material-symbols-outlined">close</mat-icon>
       </a>
       <span class="title">Harcama ekle</span>
-      <label class="date">
+      <span class="header-spacer app-web-only" aria-hidden="true"></span>
+      <label class="date app-mobile-only">
         {{ dateLabel() }}
         <input type="date" [value]="date()" (input)="onDate($event)" aria-label="Tarih" />
       </label>
@@ -48,11 +50,28 @@ const CURRENCY_SYMBOLS: Record<string, string> = { TRY: '₺', USD: '$', EUR: '�
         </div>
       } @else {
         <div class="display">
-          <span class="amount app-num" [class.empty]="amountText() === ''" aria-live="polite">
+          <span class="amount app-num app-mobile-only" [class.empty]="amountText() === ''" aria-live="polite">
             {{ amountDisplay() }}<span class="symbol"> {{ currencySymbol() }}</span>
           </span>
+          <label class="amount-field app-web-only">
+            <span class="app-label">Tutar</span>
+            <span class="amount-box">
+              <input
+                #amountInput
+                class="amount-input app-num"
+                inputmode="decimal"
+                autocomplete="off"
+                autofocus
+                placeholder="0,00"
+                aria-label="Tutar"
+                [value]="amountText()"
+                (input)="onAmountInput($event)"
+              />
+              <span class="symbol">{{ currencySymbol() }}</span>
+            </span>
+          </label>
           @if (accountNote(); as note) {
-            <span class="note">{{ note }}</span>
+            <span class="note app-mobile-only">{{ note }}</span>
           }
           @if (amountError(); as message) {
             <span class="error">{{ message }}</span>
@@ -78,7 +97,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = { TRY: '₺', USD: '$', EUR: '�
           }
         </div>
 
-        <div class="group">
+        <div class="group app-mobile-only">
           <span class="app-label" id="account-label">Hesap</span>
           <div class="chips" role="group" aria-labelledby="account-label">
             @for (account of accountList; track account.id) {
@@ -108,6 +127,35 @@ const CURRENCY_SYMBOLS: Record<string, string> = { TRY: '₺', USD: '$', EUR: '�
           </div>
         </div>
 
+        <div class="web-row app-web-only">
+          <label class="field">
+            <span class="app-label">Hesap</span>
+            <select class="control" aria-label="Hesap seç" (change)="onAccountSelect($event)">
+              @for (account of accountList; track account.id) {
+                <option [value]="account.id" [selected]="selectedAccount()?.id === account.id">
+                  {{ account.name }}
+                </option>
+              }
+            </select>
+          </label>
+          @if (selectedAccount()?.type === 'CREDIT_CARD') {
+            <label class="field">
+              <span class="app-label">Taksit</span>
+              <select class="control" aria-label="Taksit sayısı" (change)="onInstallments($event)">
+                @for (count of installmentOptions; track count) {
+                  <option [value]="count" [selected]="count === installmentCount()">
+                    {{ count === 1 ? 'Peşin' : count + ' taksit' }}
+                  </option>
+                }
+              </select>
+            </label>
+          }
+          <label class="field">
+            <span class="app-label">Tarih</span>
+            <input class="control" type="date" aria-label="Tarih" [value]="date()" (input)="onDate($event)" />
+          </label>
+        </div>
+
         <input
           class="description"
           aria-label="Açıklama (opsiyonel)"
@@ -118,7 +166,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = { TRY: '₺', USD: '$', EUR: '�
           (input)="onDescription($event)"
         />
 
-        <div class="keypad">
+        <div class="keypad app-mobile-only">
           @for (key of keys; track key.key) {
             <button type="button" [attr.aria-label]="key.label" (click)="press(key.key)">{{ key.text }}</button>
           }
@@ -127,19 +175,22 @@ const CURRENCY_SYMBOLS: Record<string, string> = { TRY: '₺', USD: '$', EUR: '�
         @if (error(); as message) {
           <p class="error" role="alert">{{ message }}</p>
         }
-        <button type="button" class="app-primary save" [disabled]="saving()" (click)="submit()">
-          {{ saving() ? 'Kaydediliyor…' : 'Kaydet' }}
-        </button>
+        <div class="save-row">
+          <span class="save-note app-web-only">{{ saveNote() }}</span>
+          <button type="button" class="app-primary save" [disabled]="saving()" (click)="submit()">
+            {{ saving() ? 'Kaydediliyor…' : 'Kaydet' }}
+          </button>
+        </div>
       }
     }
+    </div></div>
   `,
   styles: `
     :host {
-      display: flex;
-      flex-direction: column;
+      display: block;
+    }
+    .page {
       gap: 16px;
-      box-sizing: border-box;
-      min-height: 100dvh;
       max-width: 480px;
       margin: 0 auto;
       padding: 18px 20px calc(24px + env(safe-area-inset-bottom));
@@ -273,6 +324,100 @@ const CURRENCY_SYMBOLS: Record<string, string> = { TRY: '₺', USD: '$', EUR: '�
     .save {
       height: 58px;
     }
+    .save-row {
+      display: contents;
+    }
+    .header-spacer {
+      width: 44px;
+    }
+    .amount-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-self: stretch;
+    }
+    .amount-box {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 6px 16px;
+      border: 1px solid var(--app-border);
+      border-radius: var(--app-radius-input);
+      background: var(--app-surface-2);
+    }
+    .amount-box:focus-within {
+      outline: 3px solid var(--app-accent-text);
+      outline-offset: 2px;
+    }
+    .amount-input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      outline: none;
+      background: none;
+      color: var(--app-text);
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -1px;
+    }
+    .web-row {
+      display: flex;
+      gap: 10px;
+    }
+    .field {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .control {
+      box-sizing: border-box;
+      width: 100%;
+      height: 44px;
+      padding: 0 10px;
+      border: 1px solid var(--app-border);
+      border-radius: var(--app-radius-input);
+      background: var(--app-surface);
+      color: var(--app-text);
+      font: 400 14px var(--app-font);
+    }
+    .control:focus-visible {
+      outline: 3px solid var(--app-accent-text);
+      outline-offset: 2px;
+    }
+    .save-note {
+      font-size: 12px;
+      color: var(--app-muted);
+    }
+    @media (min-width: 840px) {
+      /* Web: ortadaki panel (.app-sheet-panel) 480 px; burada yalnız iç boşluk değişir. */
+      .page {
+        max-width: 480px;
+        margin: 0;
+        padding: 20px 24px 24px;
+      }
+      /* Web: kategori çipleri alt satıra sarar, yana kaymaz. */
+      .chips {
+        flex-wrap: wrap;
+        overflow: visible;
+        margin: 0;
+        padding: 0;
+      }
+      .save-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .save-note {
+        flex: 1;
+      }
+      .save {
+        flex: none;
+        min-width: 140px;
+        padding: 0 28px;
+      }
+    }
     .state {
       display: flex;
       flex-direction: column;
@@ -312,6 +457,7 @@ export class ExpenseEntry {
   protected readonly submitted = signal(false);
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+  private readonly amountInput = viewChild<ElementRef<HTMLInputElement>>('amountInput');
 
   protected readonly amountDisplay = computed(() => groupAmount(this.amountText()));
   protected readonly dateLabel = computed(() =>
@@ -342,6 +488,16 @@ export class ExpenseEntry {
     return this.parsedAmount() === null ? 'Geçerli bir tutar gir' : null;
   });
 
+  /** Web alt notu: kredi kartında ilk ekstre ayı + kısayol ipucu. */
+  protected readonly saveNote = computed(() => {
+    const account = this.selectedAccount();
+    const hint = 'Enter ile kaydet';
+    if (account?.type === 'CREDIT_CARD' && account.statementDay !== null && this.date() !== '') {
+      return `Ekstre: ${periodLabel(statementPeriod(this.date(), account.statementDay))} · ${hint}`;
+    }
+    return hint;
+  });
+
   /** Sondaki virgül ("12,") yazım halidir; doğrulamadan önce atılır. */
   private parsedAmount(): string | null {
     return parseAmount(this.amountText().replace(/,$/, ''));
@@ -349,6 +505,8 @@ export class ExpenseEntry {
 
   constructor() {
     this.load();
+    // Web'de tutar alanı açılır açılmaz odakta olsun (telefonda gizli, odak sessizce düşer).
+    effect(() => this.amountInput()?.nativeElement.focus());
   }
 
   protected load(): void {
@@ -371,8 +529,35 @@ export class ExpenseEntry {
     this.amountText.update((current) => pressKey(current, key));
   }
 
+  /** Web tutar alanı: tuş takımıyla aynı kurallar (en çok bir virgül, 2 ondalık, 12 tamsayı hanesi). */
+  protected onAmountInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (/^((0|[1-9]\d{0,11})(,\d{0,2})?)?$/.test(input.value)) {
+      this.amountText.set(input.value);
+    } else {
+      input.value = this.amountText();
+    }
+  }
+
+  protected onAccountSelect(event: Event): void {
+    const id = Number((event.target as HTMLSelectElement).value);
+    const account = this.accounts()?.find((a) => a.id === id);
+    if (account) {
+      this.selectAccount(account);
+    }
+  }
+
   protected onKeydown(event: KeyboardEvent): void {
     const target = event.target as HTMLElement | null;
+    if (event.key === 'Escape') {
+      this.router.navigate(['/harcamalar']);
+      return;
+    }
+    if (event.key === 'Enter' && !target?.closest('button, a') && this.accounts()?.length) {
+      event.preventDefault();
+      this.submit();
+      return;
+    }
     if (event.ctrlKey || event.metaKey || event.altKey || target?.matches('input, select, textarea')) {
       return;
     }

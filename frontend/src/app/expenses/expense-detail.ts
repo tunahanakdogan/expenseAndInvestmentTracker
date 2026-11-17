@@ -15,7 +15,9 @@ type Phase = 'past' | 'current' | 'future';
 @Component({
   selector: 'app-expense-detail',
   imports: [ReactiveFormsModule, MatIconModule, MoneyPipe, RouterLink],
+  host: { '(document:keydown.escape)': 'close()' },
   template: `
+    <div class="app-sheet"><div class="app-sheet-panel page">
     <header>
       <a class="app-icon-button" routerLink="/harcamalar" aria-label="Geri">
         <mat-icon fontSet="material-symbols-outlined">chevron_left</mat-icon>
@@ -97,14 +99,22 @@ type Phase = 'past' | 'current' | 'future';
     } @else {
       <p class="meta pad">Yükleniyor…</p>
     }
+    </div></div>
   `,
   styles: `
     :host {
       display: block;
-      box-sizing: border-box;
+    }
+    .page {
       max-width: 480px;
       margin: 0 auto;
       padding: 18px 16px calc(28px + env(safe-area-inset-bottom));
+    }
+    @media (min-width: 840px) {
+      .page {
+        margin: 0;
+        padding: 20px 24px 24px;
+      }
     }
     header {
       display: flex;
@@ -340,6 +350,15 @@ export class ExpenseDetail {
       return 'current';
     }
     return payment.period < this.thisPeriod ? 'past' : 'future';
+  }
+
+  /** Esc: açık taksit düzenlemesi varsa onu bırakır, yoksa paneli kapatır. */
+  protected close(): void {
+    if (this.editingNo() !== null) {
+      this.editingNo.set(null);
+      return;
+    }
+    this.router.navigate(['/harcamalar']);
   }
 
   protected startEdit(payment: ExpensePayment): void {

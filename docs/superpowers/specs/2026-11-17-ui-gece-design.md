@@ -49,6 +49,23 @@ Yazı: **Inter** (metin) + **Space Grotesk** (tutarlar ve başlıklar); Google F
 - **Ayarlar:** Görünüm (Sistem · Koyu · Açık), hesaplar listesi (+ Hesap ekle), kategori çipleri (+ Kategori), oturum bilgisi, Çıkış yap.
 - **Giriş ekranı:** logo kutusu, "Finans Takip", iki alan, hata satırı, Giriş yap.
 
+## Responsive düzen (kullanıcı isteği: web ve telefonda aynı rahatlıkta)
+Tuvaldeki "Web (geniş ekran)" satırı referanstır. Kırılma noktaları:
+
+| Genişlik | Düzen |
+|---|---|
+| < 600 px (telefon) | Bugünkü tasarım: yüzen alt menü, tam ekran giriş/detay/form, tuş takımı. |
+| 600–839 px (tablet, dar pencere) | Telefon düzeni; içerik 640 px'te ortalanır, liste kartları biraz ferahlar. |
+| ≥ 840 px (web) | Soldaki ray (Ekle · Harcamalar · Yatırımlar · Ayarlar); sayfa başlığı solda büyük, sağda sayfa eylemleri. İçerik en fazla 1200 px. |
+
+Web düzeninde ekranlar:
+- **Harcamalar:** iki sütun — solda 360 px özet kartı (toplam + kategori listesi: ad, tutar, %, çubuk), sağda ödemeler **tablosu** (Tarih · Açıklama · Kategori · Hesap · Taksit · Tutar); satıra tıklayınca detay.
+- **Yatırımlar:** üstte 3 özet kartı (Toplam değer · Maliyet · Getiri), tam genişlikte etiketli dağılım şeridi, varlıklar **tablosu** (Varlık · Tür · Adet · Ort. maliyet · Güncel · Değer · Getiri).
+- **Hızlı giriş, harcama detayı, yatırım işlemi:** tam ekran sayfa yerine karartılmış zemin üstünde ortada **panel** (480 px). Hızlı girişte **tuş takımı gizlenir**, tutar klavyeyle yazılır; hesap/taksit/tarih tek satırda; Enter kaydeder, Esc kapatır.
+- **Ayarlar:** ray varken geri butonu gizlenir; içerik iki sütun (Görünüm + Hesaplar | Kategoriler).
+- **Giriş ekranı:** ortada 400 px kart.
+- Tablolar dar alanda kaymaz: 840–1000 px arasında bazı sütunlar (Hesap, Ort. maliyet, Güncel) gizlenir.
+
 ## Backend eklemeleri (frontend tutarla hesap yapmadığı için)
 - `GET /api/expenses?period=` yanıtına `categoryTotals: [{categoryId, name, currency, amount, sharePct}]` — para birimi başına, tutara göre azalan; `sharePct` o para birimindeki toplamın yüzdesi (2 hane HALF_EVEN).
 - `GET /api/portfolio` yanıtına `allocation: [{type, valueTry, sharePct}]` — yalnız TRY değeri bilinen varlıklar; türe göre gruplu, azalan.

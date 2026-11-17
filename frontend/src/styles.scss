@@ -28,6 +28,7 @@ html[data-theme='dark'] {
   --app-gold: #e9c46a;
   --app-slate: #5b6b80;
   --app-shadow: none;
+  --app-scrim: rgba(5, 7, 10, 0.72);
 }
 
 html[data-theme='light'] {
@@ -46,6 +47,7 @@ html[data-theme='light'] {
   --app-gold: #e9c46a;
   --app-slate: #3e4c5e;
   --app-shadow: 0 8px 24px rgba(14, 17, 22, 0.1);
+  --app-scrim: rgba(14, 17, 22, 0.45);
 }
 
 html {
@@ -177,6 +179,80 @@ a {
   &:focus-visible {
     outline: 3px solid var(--app-accent-text);
     outline-offset: 2px;
+  }
+}
+
+// --- Responsive (docs/superpowers/specs/2026-11-17-ui-gece-design.md → "Responsive düzen") ---
+// Kırılma noktaları: < 600 telefon, 600–839 tablet, ≥ 840 web (yan ray).
+
+// Kabuktaki sayfa genişliği. Global olmak zorunda: router-outlet'e eklenen sayfa bileşenlerine kabuğun
+// kapsüllenmiş stilleri ulaşmaz. Seçicisi bileşenlerin :host kurallarından güçlüdür.
+@media (min-width: 600px) and (max-width: 839px) {
+  app-shell main.with-nav > :not(router-outlet) {
+    display: block;
+    box-sizing: border-box;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+}
+@media (min-width: 840px) {
+  app-shell main.with-nav > :not(router-outlet) {
+    display: block;
+    box-sizing: border-box;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+}
+
+// Tam ekran sayfa (hızlı giriş, detay, form): telefonda tüm ekran; web'de karartılmış zemin üstünde
+// ortada panel. Kullanım: <div class="app-sheet"><div class="app-sheet-panel">…</div></div>
+.app-sheet {
+  min-height: 100dvh;
+  box-sizing: border-box;
+  background: var(--app-bg);
+}
+.app-sheet-panel {
+  box-sizing: border-box;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+@media (min-width: 600px) and (max-width: 839px) {
+  .app-sheet-panel {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+}
+@media (min-width: 840px) {
+  .app-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: var(--app-scrim);
+    overflow: auto;
+  }
+  .app-sheet-panel {
+    width: 100%;
+    max-width: 480px;
+    min-height: 0;
+    max-height: calc(100dvh - 48px);
+    overflow: auto;
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: 24px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  }
+  .app-mobile-only {
+    display: none !important;
+  }
+}
+@media (max-width: 839px) {
+  .app-web-only {
+    display: none !important;
   }
 }
 

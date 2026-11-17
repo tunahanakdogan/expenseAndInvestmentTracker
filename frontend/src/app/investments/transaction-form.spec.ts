@@ -431,4 +431,13 @@ describe('TransactionForm', () => {
 
     expect(field<HTMLSelectElement>('assetId')!.value).toBe('1');
   });
+
+  it('panel kabuğuna sarılıdır ve Esc yatırımlar sayfasına döner', async () => {
+    await setup();
+
+    expect(el.querySelector('.app-sheet > .app-sheet-panel form')).not.toBeNull();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+    expect(navigate).toHaveBeenCalledWith('/yatirimlar');
+  });
 });

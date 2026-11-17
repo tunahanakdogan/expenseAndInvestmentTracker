@@ -132,9 +132,6 @@ import { filter, map, startWith } from 'rxjs';
         padding-bottom: 0;
         margin-left: 112px;
       }
-      main > * {
-        max-width: 960px;
-      }
       .rail {
         position: fixed;
         top: 0;

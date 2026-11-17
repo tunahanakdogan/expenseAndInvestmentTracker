@@ -12,16 +12,17 @@ import { currentPeriod, periodLabel, shiftPeriod, shortDate } from './period';
   imports: [MatIconModule, MoneyPipe, RouterLink],
   template: `
     <header>
+      <h1 class="page-title">Harcamalar</h1>
       <div class="month" role="group" aria-label="Ay seçici">
         <button type="button" (click)="shift(-1)" aria-label="Önceki ay">
           <mat-icon fontSet="material-symbols-outlined">chevron_left</mat-icon>
         </button>
-        <h1>{{ label() }}</h1>
+        <span class="month-label" aria-live="polite">{{ label() }}</span>
         <button type="button" (click)="shift(1)" aria-label="Sonraki ay">
           <mat-icon fontSet="material-symbols-outlined">chevron_right</mat-icon>
         </button>
       </div>
-      <a class="app-icon-button gear" routerLink="/ayarlar" aria-label="Ayarlar">
+      <a class="app-icon-button gear app-mobile-only" routerLink="/ayarlar" aria-label="Ayarlar">
         <mat-icon fontSet="material-symbols-outlined">settings</mat-icon>
       </a>
     </header>
@@ -37,6 +38,8 @@ import { currentPeriod, periodLabel, shiftPeriod, shortDate } from './period';
           <p class="empty">Bu ay ödeme yok</p>
         </div>
       } @else {
+        <div class="layout">
+        <div class="summary">
         <section class="hero" aria-label="Ay özeti">
           <span class="app-label">Bu ay ödenecek</span>
           @if (mainTotal(); as main) {
@@ -51,7 +54,17 @@ import { currentPeriod, periodLabel, shiftPeriod, shortDate } from './period';
         </section>
 
         @if (tiles().length > 0) {
-          <ul class="tiles" aria-label="Kategoriler">
+          <ul class="cats app-web-only" aria-label="Kategori dağılımı">
+            @for (tile of tiles(); track tile.categoryId) {
+              <li class="cat">
+                <span class="cat-name">{{ tile.name }}</span>
+                <span class="cat-pct app-num">{{ pct(tile.sharePct) }}</span>
+                <span class="cat-amount app-num">{{ tile.amount | money: tile.currency }}</span>
+                <span class="bar"><span class="fill" [style.width]="tile.sharePct + '%'"></span></span>
+              </li>
+            }
+          </ul>
+          <ul class="tiles app-mobile-only" aria-label="Kategoriler">
             @for (tile of tiles(); track tile.categoryId) {
               <li class="tile">
                 <span class="tile-name">{{ tile.name }}</span>
@@ -62,8 +75,41 @@ import { currentPeriod, periodLabel, shiftPeriod, shortDate } from './period';
           </ul>
         }
 
-        <h2>Ödemeler</h2>
-        <ul class="payments">
+        </div>
+
+        <table class="ptable app-web-only" aria-label="Ödemeler">
+          <thead>
+            <tr>
+              <th scope="col">Tarih</th>
+              <th scope="col">Açıklama</th>
+              <th scope="col">Kategori</th>
+              <th scope="col" class="col-account">Hesap</th>
+              <th scope="col">Taksit</th>
+              <th scope="col" class="num">Tutar</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (payment of result.payments; track payment.expenseId) {
+              <tr>
+                <td class="muted">{{ shortDate(payment.expenseDate) }}</td>
+                <td>
+                  <span class="desc">
+                    <span class="initial app-num" aria-hidden="true">{{ initial(payment) }}</span>
+                    <a class="rowlink" [routerLink]="['/harcamalar', payment.expenseId]">{{ title(payment) }}</a>
+                  </span>
+                </td>
+                <td class="muted">{{ payment.categoryName }}</td>
+                <td class="muted col-account">{{ payment.accountName }}</td>
+                <td class="muted">{{ badge(payment) }}</td>
+                <td class="num app-num">{{ payment.amount | money: payment.currency }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        </div>
+
+        <h2 class="app-mobile-only">Ödemeler</h2>
+        <ul class="payments app-mobile-only">
           @for (payment of result.payments; track payment.expenseId) {
             <li>
               <a class="row" [routerLink]="['/harcamalar', payment.expenseId]">
@@ -97,6 +143,19 @@ import { currentPeriod, periodLabel, shiftPeriod, shortDate } from './period';
       align-items: center;
       justify-content: space-between;
     }
+    /* Telefonda başlık yalnız ekran okuyucuya; web'de solda büyük görünür. */
+    .page-title {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      margin: 0;
+    }
+    .layout,
+    .summary {
+      display: contents;
+    }
     .month {
       display: flex;
       align-items: center;
@@ -122,8 +181,7 @@ import { currentPeriod, periodLabel, shiftPeriod, shortDate } from './period';
       outline: 3px solid var(--app-accent-text);
       outline-offset: -2px;
     }
-    h1 {
-      margin: 0;
+    .month-label {
       min-width: 96px;
       text-align: center;
       font: 500 14px var(--app-font);
@@ -262,6 +320,153 @@ import { currentPeriod, periodLabel, shiftPeriod, shortDate } from './period';
       font-weight: 600;
       white-space: nowrap;
     }
+    .cats {
+      margin-top: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .cat {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      column-gap: 12px;
+      row-gap: 6px;
+      align-items: baseline;
+    }
+    .cat-name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .cat-pct {
+      font-size: 12px;
+      color: var(--app-muted);
+    }
+    .cat-amount {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .cat .bar {
+      grid-column: 1 / -1;
+      height: 6px;
+      border-radius: 3px;
+    }
+    .cat .fill {
+      border-radius: 3px;
+    }
+    .ptable {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--app-surface);
+      border: 1px solid var(--app-border);
+      border-radius: var(--app-radius-card);
+      box-shadow: var(--app-shadow);
+      table-layout: fixed;
+    }
+    .ptable th {
+      padding: 14px 16px;
+      text-align: left;
+      font: 500 12px var(--app-font);
+      color: var(--app-muted);
+      border-bottom: 1px solid var(--app-border);
+    }
+    .ptable td {
+      height: 56px;
+      padding: 0 16px;
+      font-size: 14px;
+      border-bottom: 1px solid var(--app-border);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ptable tbody tr {
+      position: relative;
+    }
+    .ptable tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .ptable tbody tr:hover {
+      background: var(--app-surface-2);
+    }
+    .ptable .num {
+      text-align: right;
+      font-weight: 600;
+    }
+    .ptable .muted {
+      color: var(--app-muted);
+    }
+    .desc {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .desc .initial {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      font-size: 13px;
+    }
+    .rowlink {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      color: var(--app-text);
+      text-decoration: none;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* Tüm satır tıklanabilir: bağlantının görünmez katmanı satırı kaplar. */
+    .rowlink::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+    }
+    .rowlink:focus-visible {
+      outline: none;
+    }
+    .rowlink:focus-visible::after {
+      outline: 3px solid var(--app-accent-text);
+      outline-offset: -3px;
+      border-radius: 12px;
+    }
+    @media (min-width: 840px) {
+      /* Genişlik sınırını (1200 px) kabuk verir; burada yalnız kenar boşlukları. */
+      :host {
+        padding: 28px 40px 0;
+      }
+      .page-title {
+        position: static;
+        width: auto;
+        height: auto;
+        overflow: visible;
+        clip-path: none;
+        font: 700 24px var(--app-font);
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 360px minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+        margin-top: 24px;
+      }
+      .summary {
+        display: block;
+        padding: 24px;
+        border: 1px solid var(--app-border);
+        border-radius: var(--app-radius-card);
+        background: var(--app-surface);
+        box-shadow: var(--app-shadow);
+      }
+      .hero {
+        padding-top: 0;
+      }
+    }
+    @media (min-width: 840px) and (max-width: 1000px) {
+      .col-account {
+        display: none;
+      }
+    }
     .state {
       display: flex;
       flex-direction: column;
@@ -312,6 +517,11 @@ export class ExpenseList {
       next: (result) => this.data.set(result),
       error: () => this.loadFailed.set(true),
     });
+  }
+
+  /** Backend'in "33.48" yüzdesi → "%33,48" (yalnız gösterim, hesap yok). */
+  protected pct(sharePct: string): string {
+    return `%${sharePct.replace('.', ',')}`;
   }
 
   protected title(p: PaymentRow): string {

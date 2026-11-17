@@ -304,4 +304,87 @@ describe('Portfolio', () => {
       expect(status()).toBe('Fiyatlar güncellenemedi, tekrar dene');
     });
   });
+
+  describe('web düzeni (CSS kırılma noktasına göre gösterilir)', () => {
+    function rows(): HTMLElement[] {
+      return Array.from(el.querySelectorAll<HTMLElement>('[data-testid=asset-row]'));
+    }
+
+    it('varlıkları 7 sütunlu tabloda gösterir', async () => {
+      await load(FULL);
+
+      const headers = Array.from(el.querySelectorAll('table th')).map((h) => h.textContent?.trim());
+      expect(headers).toEqual([
+        'Varlık', 'Tür', 'Adet', 'Ort. maliyet', 'Güncel', 'Değer', 'Getiri',
+      ]);
+      expect(rows()).toHaveLength(2);
+      const thyao = rows()[1];
+      for (const text of [
+        'Türk Hava Yolları', 'THYAO', '13.11.2026', 'BIST hissesi', '15', '110,60 ₺', '130,00 ₺',
+        '1.950,00 ₺', '+%17,54',
+      ]) {
+        expect(thyao.textContent).toContain(text);
+      }
+      expect(thyao.querySelector('a')?.getAttribute('href')).toBe('/varlik/1');
+      expect(thyao.querySelectorAll('td')[6].querySelector('.gain')).not.toBeNull();
+    });
+
+    it('ABD hissesinde TRY değer ve getiriyi ikinci satırda gösterir', async () => {
+      await load(FULL);
+
+      const cells = rows()[0].querySelectorAll('td');
+      expect(cells[5].textContent).toContain('930,00 $');
+      expect(cells[5].querySelector('.second')?.textContent).toContain('38.130,00 ₺');
+      expect(cells[6].querySelector('.second')?.textContent).toContain('%74,92');
+    });
+
+    it('fiyatı olmayan satırda "Fiyat yok" gösterir; zararı loss sınıfıyla', async () => {
+      await load({
+        ...FULL,
+        assets: [
+          { ...THYAO, currentPrice: null, marketValue: null, unrealizedGain: null, unrealizedGainPct: null },
+          { ...AAPL, unrealizedGain: '-5.0000', unrealizedGainPct: '-1.00' },
+        ],
+      });
+
+      expect(rows()[0].textContent).toContain('Fiyat yok');
+      expect(rows()[1].querySelector('.loss')?.textContent).toContain('-%1,00');
+    });
+
+    it('üç özet kartını gösterir', async () => {
+      await load(FULL);
+
+      const total = el.querySelector('[data-testid=sum-total]')!.textContent;
+      expect(total).toContain('Toplam değer');
+      expect(total).toContain('40.080,00 ₺');
+      expect(el.querySelector('[data-testid=sum-cost]')!.textContent).toContain('23.457,00 ₺');
+      const gain = el.querySelector('[data-testid=sum-gain]')!;
+      expect(gain.textContent).toContain('+16.623,00 ₺');
+      expect(gain.textContent).toContain('%70,87');
+      expect(gain.classList).not.toContain('loss-card');
+    });
+
+    it('zararda getiri kartı loss-card varyantını kullanır', async () => {
+      await load({ ...FULL, totalUnrealizedGainTry: '-500.0000', totalUnrealizedGainPctTry: '-2.09' });
+
+      const gain = el.querySelector('[data-testid=sum-gain]')!;
+      expect(gain.classList).toContain('loss-card');
+      expect(gain.textContent).toContain('-500,00 ₺');
+    });
+
+    it('dağılım şeridinde her dilim etiketlidir', async () => {
+      await load(FULL);
+
+      const segs = Array.from(el.querySelectorAll('[data-testid=alloc-segment-web]'));
+      expect(segs.map((s) => s.textContent?.trim())).toEqual(['ABD %95,14', 'BIST %4,86']);
+    });
+
+    it('başlık ve etiketli yenileme düğmesi vardır', async () => {
+      await load(FULL);
+
+      expect(el.querySelector('h1')?.textContent).toContain('Yatırımlar');
+      const button = el.querySelector('button[aria-label="Fiyatları güncelle"]')!;
+      expect(button.textContent).toContain('Fiyatları güncelle');
+    });
+  });
 });
