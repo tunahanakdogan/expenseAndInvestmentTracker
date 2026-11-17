@@ -86,3 +86,11 @@ export interface PriceRefreshResult {
   updatedRates: number;
   failed: string[];
 }
+
+/** GET /api/pricing/instruments arama sonucu. */
+export interface Instrument {
+  type: AssetType;
+  symbol: string;
+  name: string;
+  exchange: string;
+}
