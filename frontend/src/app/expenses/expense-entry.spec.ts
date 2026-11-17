@@ -348,4 +348,58 @@ describe('ExpenseEntry', () => {
     expect(el.querySelector('a[href="/ayarlar"]')).not.toBeNull();
     expect(el.querySelector('.keypad')).toBeNull();
   });
+
+  describe('web düzeni', () => {
+    const webInput = () => el.querySelector<HTMLInputElement>('input.amount-input')!;
+
+    it('tutar alanı "1234,5"i kabul eder, "1,234"ü reddeder', async () => {
+      await setup();
+
+      expect(webInput().getAttribute('inputmode')).toBe('decimal');
+      await setText('input.amount-input', '1234,5');
+      expect(webInput().value).toBe('1234,5');
+      expect(amountText()).toContain('1.234,5');
+
+      await setText('input.amount-input', '1,234');
+      expect(webInput().value).toBe('1234,5');
+      await setText('input.amount-input', 'abc');
+      expect(webInput().value).toBe('1234,5');
+    });
+
+    it('web tutar alanından girilen tutar kaydedilir', async () => {
+      await setup();
+      await setText('input.amount-input', '1234,5');
+      await pickCategory('Market');
+      await save();
+
+      expect(http.expectOne('/api/expenses').request.body).toMatchObject({ amount: '1234.5', categoryId: 10 });
+    });
+
+    it('Enter kaydeder, Esc listeye döner', async () => {
+      await setup();
+      await setText('input.amount-input', '50');
+      await pickCategory('Market');
+      await pressPhysical('Enter', webInput());
+
+      expect(http.expectOne('/api/expenses').request.body).toMatchObject({ amount: '50' });
+
+      await pressPhysical('Escape', webInput());
+      expect(navigate).toHaveBeenCalledWith(['/harcamalar']);
+    });
+
+    it('panel app-sheet içinde; hesap, taksit ve tarih tek satırda, ekstre notu yanında', async () => {
+      await setup();
+
+      expect(el.querySelector('.app-sheet .app-sheet-panel')).not.toBeNull();
+      const row = el.querySelector('.web-row')!;
+      expect(row.querySelector('select[aria-label="Hesap seç"]')).not.toBeNull();
+      expect(row.querySelector('input[type=date]')).not.toBeNull();
+      expect(row.querySelector('select[aria-label="Taksit sayısı"]')).toBeNull();
+      expect(el.querySelector('.save-note')?.textContent).toContain('Enter ile kaydet');
+
+      await select(row.querySelector('select[aria-label="Hesap seç"]')!, '2');
+      expect(row.querySelector('select[aria-label="Taksit sayısı"]')).not.toBeNull();
+      expect(el.querySelector('.save-note')?.textContent).toContain('Ekstre:');
+    });
+  });
 });
