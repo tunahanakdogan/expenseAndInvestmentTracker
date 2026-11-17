@@ -73,6 +73,14 @@ class PortfolioControllerTest extends InvestmentApiTestBase {
         assertThat(str(r, "$.totalUnrealizedGainTry")).isEqualTo("16623.0000");
         assertThat(str(r, "$.totalUnrealizedGainPctTry")).isEqualTo("70.87");
         assertThat(InvestmentApiTestBase.<Boolean>path(r, "$.missingPrices")).isFalse();
+
+        // 38130 / 40080 = %95,13; 1950 / 40080 = %4,87 — değere göre azalan.
+        assertThat(InvestmentApiTestBase.<java.util.List<String>>path(r, "$.allocation[*].type"))
+                .containsExactly("US_STOCK", "BIST_STOCK");
+        assertThat(InvestmentApiTestBase.<java.util.List<String>>path(r, "$.allocation[*].valueTry"))
+                .containsExactly("38130.0000", "1950.0000");
+        assertThat(InvestmentApiTestBase.<java.util.List<String>>path(r, "$.allocation[*].sharePct"))
+                .containsExactly("95.13", "4.87");
     }
 
     @Test
@@ -94,6 +102,11 @@ class PortfolioControllerTest extends InvestmentApiTestBase {
         assertThat(str(r, "$.totalUnrealizedGainTry")).isEqualTo("16332.0000");
         assertThat(str(r, "$.totalUnrealizedGainPctTry")).isEqualTo("74.92");
         assertThat(InvestmentApiTestBase.<Boolean>path(r, "$.missingPrices")).isTrue();
+        // Fiyatı olmayan varlık dağılıma girmez.
+        assertThat(InvestmentApiTestBase.<java.util.List<String>>path(r, "$.allocation[*].type"))
+                .containsExactly("US_STOCK");
+        assertThat(InvestmentApiTestBase.<java.util.List<String>>path(r, "$.allocation[*].sharePct"))
+                .containsExactly("100.00");
     }
 
     @Test
@@ -125,6 +138,7 @@ class PortfolioControllerTest extends InvestmentApiTestBase {
         assertThat(str(r, "$.totalCostTry")).isEqualTo("23457.0000");
         assertNull(r, "$.", "totalMarketValueTry", "totalUnrealizedGainTry", "totalUnrealizedGainPctTry");
         assertThat(InvestmentApiTestBase.<Boolean>path(r, "$.missingPrices")).isTrue();
+        assertThat(InvestmentApiTestBase.<java.util.List<String>>path(r, "$.allocation")).isEmpty();
     }
 
     @Test

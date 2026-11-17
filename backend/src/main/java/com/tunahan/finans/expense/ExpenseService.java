@@ -14,6 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.YearMonth;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -70,12 +73,32 @@ class ExpenseService {
         List<ExpensePayment> payments = expenses.findPaymentsByPeriod(userId, period.toString());
 
         Map<String, Money> totals = new TreeMap<>();
+        Map<List<Object>, Money> byCategory = new LinkedHashMap<>();
+        Map<Long, String> categoryNames = new HashMap<>();
         for (ExpensePayment payment : payments) {
-            totals.merge(payment.getCurrency(), new Money(payment.getAmount(), payment.getCurrency()), Money::add);
+            Money amount = new Money(payment.getAmount(), payment.getCurrency());
+            totals.merge(payment.getCurrency(), amount, Money::add);
+            Category category = payment.getExpense().getCategory();
+            categoryNames.put(category.getId(), category.getName());
+            byCategory.merge(List.of(payment.getCurrency(), category.getId()), amount, Money::add);
         }
+        List<CategoryTotal> categoryTotals = byCategory.entrySet().stream()
+                .map(e -> {
+                    Long categoryId = (Long) e.getKey().get(1);
+                    Money amount = e.getValue();
+                    BigDecimal share = amount.amount().multiply(BigDecimal.valueOf(100))
+                            .divide(totals.get(amount.currency()).amount(), 2, Money.ROUNDING);
+                    return new CategoryTotal(categoryId, categoryNames.get(categoryId), amount.currency(),
+                            scaled(amount.amount()), share);
+                })
+                .sorted(Comparator.comparing(CategoryTotal::currency)
+                        .thenComparing(CategoryTotal::amount, Comparator.reverseOrder())
+                        .thenComparing(CategoryTotal::name))
+                .toList();
         return new PeriodPaymentsResponse(period.toString(),
                 payments.stream().map(ExpenseService::toRow).toList(),
-                totals.values().stream().map(t -> new CurrencyTotal(t.currency(), scaled(t.amount()))).toList());
+                totals.values().stream().map(t -> new CurrencyTotal(t.currency(), scaled(t.amount()))).toList(),
+                categoryTotals);
     }
 
     /** Tek taksitin tutarını değiştirir; harcama toplamı ödemelerin toplamı olarak yeniden hesaplanır. */

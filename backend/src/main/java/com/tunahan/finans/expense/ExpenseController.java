@@ -94,8 +94,16 @@ record PaymentRow(Long expenseId, int installmentNo, int installmentCount, BigDe
 record CurrencyTotal(String currency, BigDecimal amount) {
 }
 
-/** {@code totals}: para birimi başına ayrı toplam (D-006), para birimi koduna göre sıralı. */
-record PeriodPaymentsResponse(String period, List<PaymentRow> payments, List<CurrencyTotal> totals) {
+/** Bir kategorinin o para birimindeki dönem toplamı; {@code sharePct} aynı para birimi toplamının yüzdesi. */
+record CategoryTotal(Long categoryId, String name, String currency, BigDecimal amount, BigDecimal sharePct) {
+}
+
+/**
+ * {@code totals}: para birimi başına ayrı toplam (D-006), para birimi koduna göre sıralı.
+ * {@code categoryTotals}: para birimi, sonra tutar (azalan) sırasıyla.
+ */
+record PeriodPaymentsResponse(String period, List<PaymentRow> payments, List<CurrencyTotal> totals,
+                              List<CategoryTotal> categoryTotals) {
 }
 
 record PaymentAmountRequest(@NotNull @Positive @Digits(integer = 15, fraction = 2) BigDecimal amount) {

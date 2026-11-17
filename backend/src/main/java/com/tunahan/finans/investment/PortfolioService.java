@@ -12,7 +12,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -38,7 +40,11 @@ class PortfolioService {
     /** Toplamlar TRY; değeri hesaplanamayan varlık değer ve getiri toplamına katılmaz ({@code missingPrices}). */
     record PortfolioResponse(BigDecimal totalCostTry, BigDecimal totalMarketValueTry,
                              BigDecimal totalUnrealizedGainTry, BigDecimal totalUnrealizedGainPctTry,
-                             boolean missingPrices, List<PortfolioItem> assets) {
+                             boolean missingPrices, List<PortfolioItem> assets, List<Allocation> allocation) {
+    }
+
+    /** Elde olup TRY değeri bilinen varlıkların türe göre dağılımı; değere göre azalan. */
+    record Allocation(AssetType type, BigDecimal valueTry, BigDecimal sharePct) {
     }
 
     /** {@code *Try} alanları yalnız ABD hissesinde dolu; fiyat (ya da kur) yoksa değer ve getiri alanları null. */
@@ -65,6 +71,7 @@ class PortfolioService {
         boolean anyHeld = false;
         boolean anyHeldValued = false;
         boolean missingPrices = false;
+        Map<AssetType, BigDecimal> valueByType = new EnumMap<>(AssetType.class);
 
         for (Asset asset : userAssets) {
             boolean usStock = asset.getType() == AssetType.US_STOCK;
@@ -96,6 +103,9 @@ class PortfolioService {
                 anyHeld = true;
                 anyHeldValued |= valueInTry != null;
                 missingPrices |= valueInTry == null;
+                if (valueInTry != null && valueInTry.signum() > 0) {
+                    valueByType.merge(asset.getType(), valueInTry, BigDecimal::add);
+                }
             }
 
             items.add(new PortfolioItem(asset.getId(), asset.getType(), asset.getSymbol(), asset.getName(),
@@ -113,8 +123,14 @@ class PortfolioService {
         // Elde varlık varken hiçbiri değerlenemiyorsa "0" yanıltır; toplam değer bilinmiyor demektir.
         boolean valueKnown = !anyHeld || anyHeldValued;
         BigDecimal totalGain = valueKnown ? totalValue.subtract(valuedCost) : null;
+        BigDecimal allocatedTotal = valueByType.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<Allocation> allocation = valueByType.entrySet().stream()
+                .sorted(Map.Entry.<AssetType, BigDecimal>comparingByValue().reversed())
+                .map(e -> new Allocation(e.getKey(), amount(e.getValue()),
+                        e.getValue().multiply(HUNDRED).divide(allocatedTotal, 2, Money.ROUNDING)))
+                .toList();
         return new PortfolioResponse(amount(totalCost), valueKnown ? amount(totalValue) : null,
-                amount(totalGain), pct(totalGain, valuedCost), missingPrices, items);
+                amount(totalGain), pct(totalGain, valuedCost), missingPrices, items, allocation);
     }
 
     private static BigDecimal gain(BigDecimal marketValue, BigDecimal costBasis) {
