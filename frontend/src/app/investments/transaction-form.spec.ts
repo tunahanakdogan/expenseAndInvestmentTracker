@@ -122,7 +122,7 @@ describe('TransactionForm', () => {
   it('satış seçilince type SELL gider', async () => {
     await setup();
     await select('assetId', '1');
-    el.querySelector<HTMLButtonElement>('mat-button-toggle[value=SELL] button')!.click();
+    el.querySelector<HTMLButtonElement>('button[data-type=SELL]')!.click();
     type('quantity', '1');
     type('unitPrice', '100');
     await submit();
@@ -263,7 +263,7 @@ describe('TransactionForm', () => {
     await select('assetId', 'new');
     type('newSymbol', 'garan');
     type('newName', 'Garanti');
-    el.querySelector<HTMLButtonElement>('mat-button-toggle[value=SELL] button')!.click();
+    el.querySelector<HTMLButtonElement>('button[data-type=SELL]')!.click();
     type('quantity', '1');
     type('unitPrice', '50');
     await submit();
@@ -406,7 +406,7 @@ describe('TransactionForm', () => {
   it('sunucu 422 dönerse mesajı gösterir', async () => {
     await setup();
     await select('assetId', '1');
-    el.querySelector<HTMLButtonElement>('mat-button-toggle[value=SELL] button')!.click();
+    el.querySelector<HTMLButtonElement>('button[data-type=SELL]')!.click();
     type('quantity', '100');
     type('unitPrice', '50');
     await submit();
