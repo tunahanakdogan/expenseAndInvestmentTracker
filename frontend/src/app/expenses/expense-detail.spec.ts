@@ -156,4 +156,20 @@ describe('ExpenseDetail', () => {
     http.expectNone('/api/expenses/5');
     expect(navigate).not.toHaveBeenCalled();
   });
+
+  it('sayfa app-sheet paneli içinde; Esc listeye döner', async () => {
+    expect(el.querySelector('.app-sheet .app-sheet-panel')).not.toBeNull();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await fixture.whenStable();
+    expect(navigate).toHaveBeenCalledWith(['/harcamalar']);
+  });
+
+  it('Esc taksit düzenlerken yalnız düzenlemeyi bırakır', async () => {
+    await click('button[aria-label="2. taksiti düzenle"]');
+    expect(el.querySelector('form')).not.toBeNull();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await fixture.whenStable();
+    expect(el.querySelector('form')).toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+  });
 });
