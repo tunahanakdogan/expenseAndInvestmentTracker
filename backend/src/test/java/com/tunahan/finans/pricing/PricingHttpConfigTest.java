@@ -33,6 +33,13 @@ class PricingHttpConfigTest {
             exchange.getResponseBody().write(body);
             exchange.close();
         });
+        server.createContext("/encoding", exchange -> {
+            String value = exchange.getRequestHeaders().getFirst("Accept-Encoding");
+            byte[] body = (value == null ? "yok" : value).getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
         server.createContext("/redirect", exchange -> {
             exchange.getResponseHeaders().add("Location", "/ua");
             exchange.sendResponseHeaders(302, -1);
@@ -62,6 +69,15 @@ class PricingHttpConfigTest {
 
         assertThat(client.get().uri("http://localhost:" + port + "/ua").retrieve().body(String.class))
                 .isEqualTo("finans-takip/0.0.1");
+    }
+
+    /** TCMB, sıkıştırma istenince çözülemeyen bir gövde döndürüyor (ZipException); sıkıştırma istenmez. */
+    @Test
+    void doesNotRequestCompressedResponses() {
+        RestClient client = PricingHttpConfig.restClient(RestClient.builder(), Duration.ofSeconds(5), Duration.ofSeconds(10));
+
+        assertThat(client.get().uri("http://localhost:" + port + "/encoding").retrieve().body(String.class))
+                .isEqualTo("yok");
     }
 
     @Test

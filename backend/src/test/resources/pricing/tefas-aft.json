@@ -1,1 +1,6 @@
-{"data":[{"TARIH":"1731542400000","FONKODU":"AFT","FIYAT":0.500000},{"TARIH":"1731715200000","FONKODU":"AFT","FIYAT":0.523456},{"TARIH":"1731628800000","FONKODU":"AFT","FIYAT":0.512345}]}
+{"errorCode":null,"errorMessage":null,"resultList":[
+  {"fonKodu":"AFT","fonUnvan":"AK PORTFÖY YENİ TEKNOLOJİLER YABANCI HİSSE SENEDİ FONU","kategoriDerece":129,"kategoriFonSay":201,"tarih":"2026-11-13","fiyat":0.523456},
+  {"fonKodu":"AFT","fonUnvan":"AK PORTFÖY YENİ TEKNOLOJİLER YABANCI HİSSE SENEDİ FONU","kategoriDerece":129,"kategoriFonSay":201,"tarih":"2026-11-11","fiyat":0.519},
+  {"fonKodu":"XYZ","fonUnvan":"BAŞKA FON","kategoriDerece":1,"kategoriFonSay":1,"tarih":"2026-11-16","fiyat":9.99},
+  {"fonKodu":"AFT","fonUnvan":"AK PORTFÖY YENİ TEKNOLOJİLER YABANCI HİSSE SENEDİ FONU","kategoriDerece":129,"kategoriFonSay":201,"tarih":"2026-11-12","fiyat":0.521}
+]}
