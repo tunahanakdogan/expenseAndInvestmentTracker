@@ -79,3 +79,10 @@ export interface Portfolio {
   missingPrices: boolean;
   assets: PortfolioItem[];
 }
+
+/** POST /api/pricing/refresh yanıtı; failed: "RATES" (kurlar) veya "TÜR:SEMBOL". */
+export interface PriceRefreshResult {
+  updatedPrices: number;
+  updatedRates: number;
+  failed: string[];
+}

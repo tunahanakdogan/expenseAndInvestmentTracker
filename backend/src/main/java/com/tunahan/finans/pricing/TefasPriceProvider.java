@@ -6,35 +6,36 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
-import java.time.format.DateTimeFormatter;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-/** Yatırım fonları: TEFAS geçmiş fiyat ucu; son 7 günün en yeni tarihli FIYAT değeri. */
+/**
+ * Yatırım fonları: TEFAS fon fiyat ucu (son 1 ayın günlük fiyatları); en yeni tarihli fiyat alınır.
+ * Eski /api/DB/BindHistoryInfo ucu Kasım 2026'da kapatıldı (ERR-006 "Method not found or disabled").
+ */
 @Component
 class TefasPriceProvider implements PriceProvider {
 
     private static final Logger log = LoggerFactory.getLogger(TefasPriceProvider.class);
-    private static final String URL = "https://www.tefas.gov.tr/api/DB/BindHistoryInfo";
-    private static final DateTimeFormatter TR_DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+    private static final String URL = "https://www.tefas.gov.tr/api/funds/fonFiyatBilgiGetir";
+    private static final JsonMapper JSON = JsonMapper.builder().build();
 
     private final RestClient restClient;
-    private final PricingClock clock;
 
-    TefasPriceProvider(@Qualifier("pricingRestClient") RestClient restClient, PricingClock clock) {
+    TefasPriceProvider(@Qualifier("pricingRestClient") RestClient restClient) {
         this.restClient = restClient;
-        this.clock = clock;
     }
 
     @Override
@@ -62,26 +63,34 @@ class TefasPriceProvider implements PriceProvider {
     }
 
     private Optional<BigDecimal> latestPrice(String fundCode) {
-        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        form.add("fontip", "YAT");
-        form.add("fonkod", fundCode);
-        form.add("bastarih", TR_DATE.format(clock.today().minusDays(7)));
-        form.add("bittarih", TR_DATE.format(clock.today()));
         try {
+            // Gövde String olarak gider: Content-Length dolu olur. TEFAS chunked isteğe 500 dönüyor.
+            Map<String, Object> request = new LinkedHashMap<>();
+            request.put("fonKodu", fundCode);
+            request.put("dil", "TR");
+            request.put("periyod", 1);
             String body = restClient.post().uri(URL)
-                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body(form)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(JSON.writeValueAsString(request))
                     .retrieve().body(String.class);
             if (body == null) {
                 return Optional.empty();
             }
-            long latestDate = Long.MIN_VALUE;
+            JsonNode root = PricingJson.parse(body);
+            if (!root.path("errorMessage").isNull() && !root.path("errorMessage").isMissingNode()) {
+                log.warn("TEFAS {} hata döndü: {}", fundCode, root.path("errorMessage").asString());
+                return Optional.empty();
+            }
+            LocalDate latestDate = null;
             BigDecimal latestPrice = null;
-            for (JsonNode row : PricingJson.parse(body).path("data")) {
-                long date = row.path("TARIH").asLong(Long.MIN_VALUE);
-                Optional<BigDecimal> price = PricingJson.positive(row.path("FIYAT"));
-                if (date != Long.MIN_VALUE && price.isPresent() && date > latestDate) {
-                    latestDate = date;
+            for (JsonNode row : root.path("resultList")) {
+                if (!fundCode.equals(row.path("fonKodu").asString())) {
+                    continue;
+                }
+                Optional<LocalDate> date = isoDate(row.path("tarih"));
+                Optional<BigDecimal> price = PricingJson.positive(row.path("fiyat"));
+                if (date.isPresent() && price.isPresent() && (latestDate == null || date.get().isAfter(latestDate))) {
+                    latestDate = date.get();
                     latestPrice = price.get();
                 }
             }
@@ -93,6 +102,14 @@ class TefasPriceProvider implements PriceProvider {
             throw e;
         } catch (RestClientException | JacksonException e) {
             log.warn("TEFAS {} alınamadı: {}", fundCode, e.getClass().getSimpleName());
+            return Optional.empty();
+        }
+    }
+
+    private static Optional<LocalDate> isoDate(JsonNode node) {
+        try {
+            return node.isString() ? Optional.of(LocalDate.parse(node.asString())) : Optional.empty();
+        } catch (DateTimeParseException e) {
             return Optional.empty();
         }
     }

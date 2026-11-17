@@ -25,6 +25,8 @@ class PricingHttpConfig {
                 HttpClient.newBuilder().connectTimeout(connect)
                         .followRedirects(HttpClient.Redirect.NORMAL).build());
         factory.setReadTimeout(read);
+        // Sıkıştırma istenince TCMB çözülemeyen bir gövde döndürüyor (ZipException: incorrect header check).
+        factory.enableCompression(false);
         return builder.requestFactory(factory)
                 .defaultHeader("User-Agent", USER_AGENT)
                 .build();

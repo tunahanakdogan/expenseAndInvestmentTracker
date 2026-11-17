@@ -186,4 +186,70 @@ describe('Portfolio', () => {
 
     expect(el.querySelector('a[aria-label="İşlem ekle"]')).not.toBeNull();
   });
+
+  describe('Fiyatları güncelle', () => {
+    function refreshButton(): HTMLButtonElement {
+      return el.querySelector<HTMLButtonElement>('button[aria-label="Fiyatları güncelle"]')!;
+    }
+
+    async function clickRefresh() {
+      refreshButton().click();
+      await fixture.whenStable();
+    }
+
+    function status(): string | undefined {
+      return el.querySelector('[role=status]')?.textContent?.trim();
+    }
+
+    it('fiyatları yeniler, portföyü yeniden yükler ve sonucu gösterir', async () => {
+      await load(FULL);
+      await clickRefresh();
+
+      const req = http.expectOne('/api/pricing/refresh');
+      expect(req.request.method).toBe('POST');
+      expect(refreshButton().disabled).toBe(true);
+      expect(status()).toContain('Fiyatlar güncelleniyor');
+
+      req.flush({ updatedPrices: 2, updatedRates: 20, failed: [] });
+      await fixture.whenStable();
+      await load({ ...FULL, totalMarketValueTry: '41000.0000' });
+
+      expect(el.textContent).toContain('41.000,00 ₺');
+      expect(status()).toBe('Fiyatlar güncellendi');
+      expect(refreshButton().disabled).toBe(false);
+    });
+
+    it('alınamayan fiyatları sembol adlarıyla bildirir', async () => {
+      await load(FULL);
+      await clickRefresh();
+      http
+        .expectOne('/api/pricing/refresh')
+        .flush({ updatedPrices: 1, updatedRates: 0, failed: ['RATES', 'FUND:AFT', 'BIST_STOCK:THYAO'] });
+      await fixture.whenStable();
+      await load(FULL);
+
+      expect(status()).toBe('Fiyatlar güncellendi. Alınamayanlar: kurlar, AFT, THYAO');
+    });
+
+    it('çok sık basılınca backend mesajını gösterir', async () => {
+      await load(FULL);
+      await clickRefresh();
+      http
+        .expectOne('/api/pricing/refresh')
+        .flush({ detail: 'Biraz bekleyip tekrar dene' }, { status: 429, statusText: 'Too Many Requests' });
+      await fixture.whenStable();
+
+      expect(status()).toBe('Biraz bekleyip tekrar dene');
+      expect(refreshButton().disabled).toBe(false);
+    });
+
+    it('diğer hatalarda genel mesaj gösterir', async () => {
+      await load(FULL);
+      await clickRefresh();
+      http.expectOne('/api/pricing/refresh').flush(null, { status: 500, statusText: 'Error' });
+      await fixture.whenStable();
+
+      expect(status()).toBe('Fiyatlar güncellenemedi, tekrar dene');
+    });
+  });
 });
