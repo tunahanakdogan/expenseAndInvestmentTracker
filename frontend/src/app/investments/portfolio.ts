@@ -1,4 +1,5 @@
 import { DatePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -14,7 +15,21 @@ import { ASSET_TYPE_LABELS, Portfolio as PortfolioData } from './models';
   selector: 'app-portfolio',
   imports: [DatePipe, MatButtonModule, MatCardModule, MatIconModule, MoneyPipe, RouterLink],
   template: `
-    <h1>Yatırımlar</h1>
+    <header>
+      <h1>Yatırımlar</h1>
+      <button
+        matButton
+        (click)="refreshPrices()"
+        [disabled]="refreshing()"
+        aria-label="Fiyatları güncelle"
+      >
+        <mat-icon fontSet="material-symbols-outlined">refresh</mat-icon>
+        Fiyatları güncelle
+      </button>
+    </header>
+    @if (refreshMessage(); as message) {
+      <p class="refresh-status" role="status">{{ message }}</p>
+    }
     @if (error()) {
       <p class="error" role="alert">Portföy yüklenemedi</p>
     } @else if (portfolio(); as p) {
@@ -129,8 +144,19 @@ import { ASSET_TYPE_LABELS, Portfolio as PortfolioData } from './models';
     </a>
   `,
   styles: `
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 0 0 12px;
+    }
     h1 {
       font: var(--mat-sys-headline-small);
+      margin: 0;
+    }
+    .refresh-status {
+      color: var(--mat-sys-on-surface-variant);
       margin: 0 0 12px;
     }
     .summary {
@@ -211,19 +237,57 @@ import { ASSET_TYPE_LABELS, Portfolio as PortfolioData } from './models';
   `,
 })
 export class Portfolio {
+  private readonly api = inject(InvestmentApi);
+
   protected readonly portfolio = signal<PortfolioData | null>(null);
   protected readonly error = signal(false);
+  protected readonly refreshing = signal(false);
+  protected readonly refreshMessage = signal<string | null>(null);
   protected readonly typeLabels = ASSET_TYPE_LABELS;
   protected readonly formatDecimal = formatDecimal;
   protected readonly formatPct = formatPct;
   protected readonly gainClass = gainClass;
 
   constructor() {
-    inject(InvestmentApi)
-      .portfolio()
-      .subscribe({
-        next: (p) => this.portfolio.set(p),
-        error: () => this.error.set(true),
-      });
+    this.load();
   }
+
+  protected refreshPrices(): void {
+    this.refreshing.set(true);
+    this.refreshMessage.set('Fiyatlar güncelleniyor…');
+    this.api.refreshPrices().subscribe({
+      next: (result) => {
+        this.refreshing.set(false);
+        this.refreshMessage.set(refreshSummary(result.failed));
+        this.load();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.refreshing.set(false);
+        this.refreshMessage.set(
+          err.status === 429
+            ? (err.error?.detail ?? 'Biraz bekleyip tekrar dene')
+            : 'Fiyatlar güncellenemedi, tekrar dene',
+        );
+      },
+    });
+  }
+
+  private load(): void {
+    this.api.portfolio().subscribe({
+      next: (p) => {
+        this.error.set(false);
+        this.portfolio.set(p);
+      },
+      error: () => this.error.set(true),
+    });
+  }
+}
+
+/** "RATES" → "kurlar", "FUND:AFT" → "AFT". */
+function refreshSummary(failed: string[]): string {
+  if (failed.length === 0) {
+    return 'Fiyatlar güncellendi';
+  }
+  const names = failed.map((f) => (f === 'RATES' ? 'kurlar' : f.slice(f.indexOf(':') + 1)));
+  return `Fiyatlar güncellendi. Alınamayanlar: ${names.join(', ')}`;
 }

@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, of, throwError } from 'rxjs';
-import { InvestmentTransaction, NewTransaction, Portfolio } from './models';
+import { InvestmentTransaction, NewTransaction, Portfolio, PriceRefreshResult } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class InvestmentApi {
@@ -23,6 +23,11 @@ export class InvestmentApi {
 
   delete(id: number): Observable<void> {
     return this.http.delete<void>(`/api/investments/transactions/${id}`);
+  }
+
+  /** Tüm fiyat ve kurları kaynaklardan hemen çeker (backend 60 sn'de bir izin verir, aksi 429). */
+  refreshPrices(): Observable<PriceRefreshResult> {
+    return this.http.post<PriceRefreshResult>('/api/pricing/refresh', null);
   }
 
   /** O günün (yoksa önceki en yakın günün) USD/TRY kuru; hiç kur yoksa null. */
