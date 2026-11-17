@@ -20,7 +20,7 @@ describe('ExpenseApi', () => {
 
     const req = http.expectOne('/api/expenses?period=2026-11');
     expect(req.request.method).toBe('GET');
-    req.flush({ period: '2026-11', payments: [], totals: [] });
+    req.flush({ period: '2026-11', payments: [], totals: [], categoryTotals: [] });
   });
 
   it('harcamayı tutarı string olarak gönderir', () => {

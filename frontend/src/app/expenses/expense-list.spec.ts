@@ -1,12 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MatBottomSheet } from '@angular/material/bottom-sheet';
-import { MatDialog } from '@angular/material/dialog';
-import { of } from 'rxjs';
+import { provideRouter } from '@angular/router';
 import { PaymentRow, PeriodPayments } from './expense-api';
-import { ExpenseDetail } from './expense-detail';
-import { ExpenseEntry } from './expense-entry';
 import { ExpenseList } from './expense-list';
 
 const PHONE: PaymentRow = {
@@ -38,29 +34,25 @@ const NOVEMBER: PeriodPayments = {
     { currency: 'TRY', amount: '100.0000' },
     { currency: 'USD', amount: '20.0000' },
   ],
+  categoryTotals: [
+    { categoryId: 1, name: 'Elektronik', currency: 'TRY', amount: '100.0000', sharePct: '100.00' },
+    { categoryId: 2, name: 'Giyim', currency: 'TRY', amount: '25.0000', sharePct: '25.00' },
+    { categoryId: 3, name: 'Yeme-İçme', currency: 'USD', amount: '20.0000', sharePct: '100.00' },
+  ],
 };
-const EMPTY = (period: string): PeriodPayments => ({ period, payments: [], totals: [] });
+const EMPTY = (period: string): PeriodPayments => ({ period, payments: [], totals: [], categoryTotals: [] });
 
 describe('ExpenseList', () => {
   let fixture: ComponentFixture<ExpenseList>;
   let http: HttpTestingController;
   let el: HTMLElement;
-  let bottomSheet: { open: ReturnType<typeof vi.fn> };
-  let dialog: { open: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 10, 15));
-    bottomSheet = { open: vi.fn().mockReturnValue({ afterDismissed: () => of(true) }) };
-    dialog = { open: vi.fn().mockReturnValue({ afterClosed: () => of(true) }) };
     await TestBed.configureTestingModule({
       imports: [ExpenseList],
-      providers: [
-        provideHttpClient(),
-        provideHttpClientTesting(),
-        { provide: MatBottomSheet, useValue: bottomSheet },
-        { provide: MatDialog, useValue: dialog },
-      ],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
     fixture = TestBed.createComponent(ExpenseList);
     http = TestBed.inject(HttpTestingController);
@@ -88,21 +80,50 @@ describe('ExpenseList', () => {
     await flush('2026-11');
   });
 
-  it('ödemeleri ve para birimi başına toplamları gösterir', async () => {
-    await flush('2026-11', NOVEMBER);
+  it('ayarlar dişlisi /ayarlar bağlantısıdır', async () => {
+    await flush('2026-11');
 
-    for (const text of ['Elektronik', 'Telefon', 'Bonus', '2/6', '100,00 ₺', '20,00 $', '10.10.2026', 'Yeme-İçme']) {
-      expect(el.textContent).toContain(text);
-    }
-    const totals = Array.from(el.querySelectorAll('.totals .total')).map((t) => t.textContent?.trim());
-    expect(totals).toEqual(['100,00 ₺', '20,00 $']);
+    expect(el.querySelector('a[aria-label="Ayarlar"]')?.getAttribute('href')).toBe('/ayarlar');
   });
 
-  it('tek çekimde taksit rozeti göstermez', async () => {
-    await flush('2026-11', { period: '2026-11', payments: [COFFEE], totals: [] });
+  it('hero: ilk para birimi büyük, diğerleri ve ödeme sayısı alt satırda', async () => {
+    await flush('2026-11', NOVEMBER);
 
-    expect(el.textContent).not.toContain('1/1');
-    expect(el.querySelector('.badge')).toBeNull();
+    expect(el.querySelector('.hero .app-label')?.textContent).toContain('Bu ay ödenecek');
+    expect(el.querySelector('.hero .big')?.textContent?.trim()).toBe('100,00 ₺');
+    expect(el.querySelector('.hero .sub')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('ve 20,00 $ · 2 ödeme');
+  });
+
+  it('kategori kutucukları yalnız ana para biriminin kategorilerini ve oran çubuğunu gösterir', async () => {
+    await flush('2026-11', NOVEMBER);
+
+    const tiles = Array.from(el.querySelectorAll('.tile'));
+    expect(tiles.map((t) => t.querySelector('.tile-name')?.textContent)).toEqual(['Elektronik', 'Giyim']);
+    expect(tiles[1].querySelector('.tile-amount')?.textContent?.trim()).toBe('25,00 ₺');
+    expect(tiles[1].querySelector<HTMLElement>('.fill')!.style.width).toBe('25%');
+  });
+
+  it('ödeme satırları başlık, meta, tutar ve rozet gösterir', async () => {
+    await flush('2026-11', NOVEMBER);
+
+    const rows = Array.from(el.querySelectorAll('a.row'));
+    expect(rows.length).toBe(2);
+    // Açıklama yoksa başlık kategori adıdır.
+    expect(rows[0].querySelector('.title')?.textContent?.trim()).toBe('Yeme-İçme');
+    expect(rows[0].querySelector('.initial')?.textContent?.trim()).toBe('Y');
+    expect(rows[0].querySelector('.badge')?.textContent?.trim()).toBe('Peşin');
+    expect(rows[1].querySelector('.title')?.textContent?.trim()).toBe('Telefon');
+    expect(rows[1].querySelector('.meta')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Elektronik · 10 Eki · Bonus',
+    );
+    expect(rows[1].querySelector('.amount')?.textContent?.trim()).toBe('100,00 ₺');
+    expect(rows[1].querySelector('.badge')?.textContent?.trim()).toBe('2/6 taksit');
+  });
+
+  it('satır detay rotasına bağlanır', async () => {
+    await flush('2026-11', NOVEMBER);
+
+    expect(el.querySelectorAll('a.row')[1].getAttribute('href')).toBe('/harcamalar/5');
   });
 
   it('sonraki ve önceki ay düğmeleri dönemi değiştirir', async () => {
@@ -146,34 +167,5 @@ describe('ExpenseList', () => {
 
     expect(el.textContent).not.toContain('Liste yüklenemedi');
     expect(el.textContent).toContain('Telefon');
-  });
-
-  it('FAB hızlı girişi açar ve kayıt sonrası listeyi yeniler', async () => {
-    await flush('2026-11');
-
-    await click('button[aria-label="Harcama ekle"]');
-
-    expect(bottomSheet.open).toHaveBeenCalledWith(ExpenseEntry);
-    await flush('2026-11', NOVEMBER);
-    expect(el.textContent).toContain('Telefon');
-  });
-
-  it('hızlı giriş kaydetmeden kapanırsa listeyi yenilemez', async () => {
-    bottomSheet.open.mockReturnValue({ afterDismissed: () => of(undefined) });
-    await flush('2026-11');
-
-    await click('button[aria-label="Harcama ekle"]');
-
-    http.expectNone('/api/expenses?period=2026-11');
-  });
-
-  it('satıra dokununca detayı açar ve kapanınca listeyi yeniler', async () => {
-    await flush('2026-11', NOVEMBER);
-
-    await click('li:nth-child(2) button.row');
-
-    expect(dialog.open.mock.calls[0][0]).toBe(ExpenseDetail);
-    expect(dialog.open.mock.calls[0][1]).toEqual(expect.objectContaining({ data: { expenseId: 5 } }));
-    await flush('2026-11');
   });
 });
