@@ -289,6 +289,96 @@ describe('TransactionForm', () => {
     retry.flush({});
   });
 
+  describe('varlık arama', () => {
+    function searchInput(): HTMLInputElement {
+      return el.querySelector<HTMLInputElement>('input[aria-label="Varlık ara"]')!;
+    }
+
+    async function search(text: string) {
+      const input = searchInput();
+      input.focus();
+      input.value = text;
+      input.dispatchEvent(new Event('input'));
+      await vi.advanceTimersByTimeAsync(300);
+    }
+
+    function expectSearch(q: string) {
+      return http.expectOne((r) => r.url === '/api/pricing/instruments' && r.params.get('q') === q);
+    }
+
+    /** Sahte zamanlayıcı seçimden sonra: whenStable gerçek zamanlayıcıyla çalışmalı; debounce setInterval kullanır. */
+    async function startNewAsset() {
+      await select('assetId', 'new');
+      vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+      vi.setSystemTime(new Date('2026-11-15T09:00:00Z'));
+    }
+
+    it('seçilen sonuç tür, sembol ve adı doldurur', async () => {
+      await setup();
+      await startNewAsset();
+      await search('türk hava');
+
+      expectSearch('türk hava').flush([
+        { type: 'BIST_STOCK', symbol: 'THYAO', name: 'Türk Hava Yolları', exchange: 'IST' },
+        { type: 'US_STOCK', symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' },
+      ]);
+      fixture.detectChanges();
+      await vi.advanceTimersByTimeAsync(0);
+
+      const options = Array.from(document.querySelectorAll<HTMLElement>('mat-option'));
+      expect(options.map((o) => o.textContent)).toEqual([
+        expect.stringContaining('THYAO'),
+        expect.stringContaining('AAPL'),
+      ]);
+      expect(options[1].textContent).toContain('ABD');
+
+      options[1].click();
+      fixture.detectChanges();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(field<HTMLSelectElement>('newType')!.value).toBe('US_STOCK');
+      expect(field('newSymbol')!.value).toBe('AAPL');
+      expect(field('newName')!.value).toBe('Apple Inc.');
+      // ABD hissesi seçilince kur alanı açılır ve kur istenir.
+      expectRate('2026-11-15').flush({ currency: 'USD', date: '2026-11-15', rateTry: '50.4199' });
+    });
+
+    it('yazmaya devam ederken yalnız son metin için istek atar', async () => {
+      await setup();
+      await startNewAsset();
+      const input = searchInput();
+      input.focus();
+      for (const text of ['as', 'ase', 'asel']) {
+        input.value = text;
+        input.dispatchEvent(new Event('input'));
+        await vi.advanceTimersByTimeAsync(100);
+      }
+      await vi.advanceTimersByTimeAsync(300);
+
+      expectSearch('asel').flush([]);
+    });
+
+    it('2 karakterden kısa metinde istek atmaz', async () => {
+      await setup();
+      await startNewAsset();
+      await search('a');
+
+      http.expectNone((r) => r.url === '/api/pricing/instruments');
+    });
+
+    it('arama hata verirse elle giriş çalışmaya devam eder', async () => {
+      await setup();
+      await startNewAsset();
+      await search('garanti');
+      expectSearch('garanti').flush(null, { status: 500, statusText: 'Error' });
+      fixture.detectChanges();
+
+      expect(document.querySelectorAll('mat-option')).toHaveLength(0);
+      type('newSymbol', 'GARAN');
+      expect(field('newSymbol')!.value).toBe('GARAN');
+    });
+  });
+
   it('yeni varlıkta sembol ve ad zorunludur', async () => {
     await setup();
     await select('assetId', 'new');

@@ -3,23 +3,47 @@ import { Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
+  FormControl,
   NonNullableFormBuilder,
   ReactiveFormsModule,
   ValidatorFn,
   Validators,
 } from '@angular/forms';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Observable, Subject, catchError, map, of, switchMap, tap } from 'rxjs';
+import {
+  Observable,
+  Subject,
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  filter,
+  map,
+  of,
+  switchMap,
+  tap,
+} from 'rxjs';
 import { AssetApi } from './asset-api';
 import { formatDecimal, parseDecimal, todayIso } from './format';
+import { InstrumentApi } from './instrument-api';
 import { InvestmentApi } from './investment-api';
-import { ASSET_TYPE_LABELS, Asset, AssetType, TransactionType } from './models';
+import { ASSET_TYPE_LABELS, Asset, AssetType, Instrument, TransactionType } from './models';
 
 const NEW_ASSET = 'new';
+
+/** Arama sonucundaki kısa tür etiketi. */
+const SHORT_TYPE_LABELS: Record<AssetType, string> = {
+  BIST_STOCK: 'BIST',
+  US_STOCK: 'ABD',
+  FUND: 'Fon',
+  CURRENCY: 'Döviz',
+  GOLD: 'Altın',
+};
 
 /** Boş değer geçerli sayılır (zorunluluk ayrı doğrulanır); ondalık ayırıcı yalnız virgül. */
 function decimal(maxFraction: number, positive: boolean): ValidatorFn {
@@ -40,9 +64,11 @@ function decimal(maxFraction: number, positive: boolean): ValidatorFn {
   selector: 'app-transaction-form',
   imports: [
     ReactiveFormsModule,
+    MatAutocompleteModule,
     MatButtonModule,
     MatButtonToggleModule,
     MatFormFieldModule,
+    MatIconModule,
     MatInputModule,
     RouterLink,
   ],
@@ -64,6 +90,30 @@ function decimal(maxFraction: number, positive: boolean): ValidatorFn {
       </mat-form-field>
 
       @if (selection().isNew) {
+        <mat-form-field>
+          <mat-label>Ara: ad veya kod</mat-label>
+          <input
+            matInput
+            [formControl]="searchControl"
+            [matAutocomplete]="instrumentList"
+            aria-label="Varlık ara"
+            autocomplete="off"
+            placeholder="ör. türk hava, apple, AFT, dolar"
+          />
+          <mat-icon matSuffix fontSet="material-symbols-outlined">search</mat-icon>
+          <mat-autocomplete
+            #instrumentList="matAutocomplete"
+            (optionSelected)="pickInstrument($event.option.value)"
+          >
+            @for (i of instruments(); track i.type + i.symbol) {
+              <mat-option [value]="i">
+                <span class="option-name">{{ i.name }}</span>
+                <span class="option-meta">{{ i.symbol }} · {{ shortTypeLabels[i.type] }}</span>
+              </mat-option>
+            }
+          </mat-autocomplete>
+          <mat-hint>Bulamazsan aşağıya elle yazabilirsin</mat-hint>
+        </mat-form-field>
         <mat-form-field>
           <mat-label>Tür</mat-label>
           <select matNativeControl formControlName="newType">
@@ -178,6 +228,17 @@ function decimal(maxFraction: number, positive: boolean): ValidatorFn {
       color: var(--mat-sys-error);
       margin: 0 0 8px;
     }
+    .option-name {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .option-meta {
+      display: block;
+      color: var(--mat-sys-on-surface-variant);
+      font: var(--mat-sys-label-small);
+    }
   `,
 })
 export class TransactionForm {
@@ -185,8 +246,14 @@ export class TransactionForm {
   private readonly investmentApi = inject(InvestmentApi);
   private readonly router = inject(Router);
 
+  private readonly instrumentApi = inject(InstrumentApi);
+
   protected readonly typeLabels = ASSET_TYPE_LABELS;
+  protected readonly shortTypeLabels = SHORT_TYPE_LABELS;
   protected readonly assetTypes = Object.keys(ASSET_TYPE_LABELS) as AssetType[];
+  /** Formun parçası değil: yalnız öneri aramak için; seçim aşağıdaki alanları doldurur. */
+  protected readonly searchControl = new FormControl<string | Instrument>('', { nonNullable: true });
+  protected readonly instruments = signal<Instrument[]>([]);
 
   protected readonly form = inject(NonNullableFormBuilder).group({
     assetId: [
@@ -239,6 +306,20 @@ export class TransactionForm {
         }
       });
 
+    this.searchControl.valueChanges
+      .pipe(
+        // Seçimde kontrolün değeri Instrument olur; yalnız yazılan metinle ara.
+        filter((value): value is string => typeof value === 'string'),
+        map((text) => text.trim()),
+        debounceTime(300),
+        distinctUntilChanged(),
+        switchMap((q) =>
+          q.length < 2 ? of([]) : this.instrumentApi.search(q).pipe(catchError(() => of([]))),
+        ),
+        takeUntilDestroyed(),
+      )
+      .subscribe((list) => this.instruments.set(list));
+
     this.syncSelection();
     this.assetApi.list().subscribe({
       next: (assets) => {
@@ -247,6 +328,14 @@ export class TransactionForm {
       },
       error: () => this.error.set('Varlıklar yüklenemedi'),
     });
+  }
+
+  protected pickInstrument(instrument: Instrument): void {
+    const { newType, newSymbol, newName } = this.form.controls;
+    newType.setValue(instrument.type);
+    newSymbol.setValue(instrument.symbol);
+    newName.setValue(instrument.name);
+    this.searchControl.setValue(instrument.name, { emitEvent: false });
   }
 
   protected numberError(control: AbstractControl, requiredMessage: string): string | null {

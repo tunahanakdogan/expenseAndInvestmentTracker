@@ -1,0 +1,8 @@
+{"explains":[],"count":6,"quotes":[
+  {"exchange":"IST","shortname":"TURK HAVA YOLLARI","quoteType":"EQUITY","symbol":"THYAO.IS","longname":"Türk Hava Yollari Anonim Ortakligi","exchDisp":"IST"},
+  {"exchange":"PNK","shortname":"Turk Hava Yollari ADR","quoteType":"EQUITY","symbol":"TKHVY","exchDisp":"OTC Markets"},
+  {"exchange":"NMS","shortname":"Apple Inc.","quoteType":"EQUITY","symbol":"AAPL","longname":"Apple Inc.","exchDisp":"NASDAQ"},
+  {"exchange":"PCX","shortname":"SPDR S&P 500","quoteType":"ETF","symbol":"SPY","exchDisp":"NYSEArca"},
+  {"exchange":"CMX","shortname":"Gold Dec 26","quoteType":"FUTURE","symbol":"GC=F","exchDisp":"COMEX"},
+  {"exchange":"IST","shortname":"ISBANK","quoteType":"EQUITY","symbol":"ISCTR.IS","exchDisp":"IST"}
+],"news":[]}
