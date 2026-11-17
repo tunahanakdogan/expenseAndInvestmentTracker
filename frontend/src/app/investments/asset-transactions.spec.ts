@@ -171,4 +171,14 @@ describe('AssetTransactions', () => {
 
     expect(el.textContent).toContain('Varlık bulunamadı');
   });
+
+  it('panel kabuğuna sarılıdır ve Esc yatırımlar sayfasına döner', async () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    await load(TRANSACTIONS);
+
+    expect(el.querySelector('.app-sheet > .app-sheet-panel')).not.toBeNull();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+    expect(navigate).toHaveBeenCalledWith('/yatirimlar');
+  });
 });

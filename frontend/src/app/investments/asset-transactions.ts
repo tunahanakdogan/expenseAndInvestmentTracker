@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, HostListener, inject, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AssetApi } from './asset-api';
@@ -13,6 +13,7 @@ import { Asset, InvestmentTransaction } from './models';
   selector: 'app-asset-transactions',
   imports: [DatePipe, MatIconModule, RouterLink],
   template: `
+    <div class="app-sheet"><div class="app-sheet-panel">
     <header>
       <a class="app-icon-button" routerLink="/yatirimlar" aria-label="Geri">
         <mat-icon fontSet="material-symbols-outlined">arrow_back</mat-icon>
@@ -75,14 +76,22 @@ import { Asset, InvestmentTransaction } from './models';
         İşlem ekle
       </a>
     }
+    </div></div>
   `,
   styles: `
     :host {
       display: block;
-      box-sizing: border-box;
+    }
+    .app-sheet-panel {
       max-width: 640px;
       margin: 0 auto;
       padding: 18px 20px 24px;
+    }
+    @media (min-width: 840px) {
+      .app-sheet-panel {
+        max-width: 480px;
+        padding: 24px;
+      }
     }
     header {
       display: flex;
@@ -163,6 +172,14 @@ export class AssetTransactions {
   private readonly assetApi = inject(AssetApi);
   private readonly investmentApi = inject(InvestmentApi);
   private readonly router = inject(Router);
+
+  /** Esc: sayfayı (web'de paneli) kapatır; açık öneri listesi Esc'yi kendisi işler. */
+  @HostListener('document:keydown.escape', ['$event'])
+  protected close(event: Event): void {
+    if (!event.defaultPrevented) {
+      void this.router.navigateByUrl('/yatirimlar');
+    }
+  }
 
   protected readonly assetId = Number(inject(ActivatedRoute).snapshot.paramMap.get('id'));
   protected readonly asset = signal<Asset | null>(null);

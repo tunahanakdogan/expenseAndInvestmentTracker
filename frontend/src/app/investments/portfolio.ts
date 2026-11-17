@@ -2,11 +2,11 @@ import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MoneyPipe } from '../shared/money.pipe';
 import { formatDecimal, formatPct, gainClass, plus } from './format';
 import { InvestmentApi } from './investment-api';
-import { AllocationItem, Portfolio as PortfolioData, SHORT_TYPE_LABELS } from './models';
+import { ASSET_TYPE_LABELS, AllocationItem, Portfolio as PortfolioData, SHORT_TYPE_LABELS } from './models';
 
 /** Yatırımlar ana sayfası: TRY toplamı, dağılım çubuğu ve varlık kartları. Tüm sayılar backend'den hazır gelir. */
 @Component({
@@ -14,7 +14,10 @@ import { AllocationItem, Portfolio as PortfolioData, SHORT_TYPE_LABELS } from '.
   imports: [DatePipe, MatIconModule, MoneyPipe, RouterLink],
   template: `
     <header>
-      <h1>Portföy</h1>
+      <h1>
+        <span class="app-mobile-only">Portföy</span>
+        <span class="app-web-only">Yatırımlar</span>
+      </h1>
       <div class="actions">
         <button
           type="button"
@@ -25,8 +28,9 @@ import { AllocationItem, Portfolio as PortfolioData, SHORT_TYPE_LABELS } from '.
           aria-label="Fiyatları güncelle"
         >
           <mat-icon fontSet="material-symbols-outlined">refresh</mat-icon>
+          <span class="refresh-label app-web-only">Fiyatları güncelle</span>
         </button>
-        <a class="app-icon-button" routerLink="/ayarlar" aria-label="Ayarlar">
+        <a class="app-icon-button app-mobile-only" routerLink="/ayarlar" aria-label="Ayarlar">
           <mat-icon fontSet="material-symbols-outlined">settings</mat-icon>
         </a>
       </div>
@@ -37,7 +41,7 @@ import { AllocationItem, Portfolio as PortfolioData, SHORT_TYPE_LABELS } from '.
     @if (error()) {
       <p class="error" role="alert">Portföy yüklenemedi</p>
     } @else if (portfolio(); as p) {
-      <section class="summary" aria-label="Portföy özeti">
+      <section class="summary app-mobile-only" aria-label="Portföy özeti">
         <span class="app-label">Toplam değer</span>
         <strong class="total app-num">
           {{ p.totalMarketValueTry === null ? 'Fiyat yok' : (p.totalMarketValueTry | money: 'TRY') }}
@@ -58,8 +62,49 @@ import { AllocationItem, Portfolio as PortfolioData, SHORT_TYPE_LABELS } from '.
           <span class="cost">maliyet {{ p.totalCostTry | money: 'TRY' }}</span>
         </div>
       </section>
+      <section class="cards3 app-web-only" aria-label="Portföy özeti (geniş)" data-testid="summary-cards">
+        <div class="app-card sum-card" data-testid="sum-total">
+          <span class="app-label">Toplam değer</span>
+          <strong class="sum-value app-num">
+            {{ p.totalMarketValueTry === null ? 'Fiyat yok' : (p.totalMarketValueTry | money: 'TRY') }}
+          </strong>
+        </div>
+        <div class="app-card sum-card" data-testid="sum-cost">
+          <span class="app-label">Maliyet</span>
+          <strong class="sum-value app-num">{{ p.totalCostTry | money: 'TRY' }}</strong>
+        </div>
+        <div
+          class="sum-card gain-card"
+          [class.loss-card]="gainClass(p.totalUnrealizedGainTry) === 'loss'"
+          data-testid="sum-gain"
+        >
+          <span class="app-label">Getiri</span>
+          @if (p.totalUnrealizedGainTry !== null) {
+            <strong class="sum-value app-num">
+              {{ plus(p.totalUnrealizedGainTry) }}{{ p.totalUnrealizedGainTry | money: 'TRY' }}
+            </strong>
+            @if (p.totalUnrealizedGainPctTry !== null) {
+              <span class="sum-pct app-num">{{ formatPct(p.totalUnrealizedGainPctTry) }}</span>
+            }
+          } @else {
+            <strong class="sum-value app-num">—</strong>
+          }
+        </div>
+      </section>
       @if (p.allocation.length > 0) {
-        <div class="strip" role="img" [attr.aria-label]="allocationText(p.allocation)">
+        <div class="strip strip-web app-web-only" role="img" [attr.aria-label]="allocationText(p.allocation)">
+          @for (seg of p.allocation; track seg.type; let i = $index) {
+            <div
+              [class]="'seg seg-' + (i > 3 ? 3 : i)"
+              [style.flex]="seg.sharePct"
+              [attr.title]="shortLabels[seg.type] + ' ' + formatPct(seg.sharePct)"
+              data-testid="alloc-segment-web"
+            >
+              {{ shortLabels[seg.type] }} {{ formatPct(seg.sharePct) }}
+            </div>
+          }
+        </div>
+        <div class="strip app-mobile-only" role="img" [attr.aria-label]="allocationText(p.allocation)">
           @for (seg of p.allocation; track seg.type; let i = $index) {
             <div
               [class]="'seg seg-' + (i > 3 ? 3 : i)"
@@ -70,7 +115,7 @@ import { AllocationItem, Portfolio as PortfolioData, SHORT_TYPE_LABELS } from '.
             </div>
           }
         </div>
-        <ul class="legend" aria-hidden="true">
+        <ul class="legend app-mobile-only" aria-hidden="true">
           @for (seg of p.allocation; track seg.type; let i = $index) {
             <li data-testid="alloc-legend">
               <i [class]="'dot seg-' + (i > 3 ? 3 : i)"></i>{{ shortLabels[seg.type] }}
@@ -81,11 +126,82 @@ import { AllocationItem, Portfolio as PortfolioData, SHORT_TYPE_LABELS } from '.
       @if (p.missingPrices) {
         <p class="warning">Bazı varlıkların fiyatı yok; toplam değere katılmadı</p>
       }
-      <h2>Varlıklar</h2>
+      <h2 class="app-mobile-only">Varlıklar</h2>
       @if (p.assets.length === 0) {
         <p class="empty">Henüz varlık yok. + ile ilk işlemini ekle</p>
       }
-      <div class="cards">
+      @if (p.assets.length > 0) {
+        <table class="assets app-web-only" data-testid="asset-table">
+          <caption class="sr-only">Varlıklar</caption>
+          <thead>
+            <tr>
+              <th scope="col">Varlık</th>
+              <th scope="col">Tür</th>
+              <th scope="col" class="num">Adet</th>
+              <th scope="col" class="num col-avg">Ort. maliyet</th>
+              <th scope="col" class="num col-price">Güncel</th>
+              <th scope="col" class="num">Değer</th>
+              <th scope="col" class="num">Getiri</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of p.assets; track item.assetId) {
+              <tr data-testid="asset-row" (click)="openAsset($event, item.assetId)">
+                <td>
+                  <a class="row-link" [routerLink]="['varlik', item.assetId]">
+                    <span class="badge-box app-num" aria-hidden="true">{{ item.symbol.slice(0, 3) }}</span>
+                    <span class="info">
+                      <span class="name">{{ item.name }}</span>
+                      <span class="meta">
+                        {{ item.symbol }}
+                        @if (item.priceDate) {
+                          · {{ item.priceDate | date: 'dd.MM.yyyy' }}
+                        }
+                      </span>
+                    </span>
+                  </a>
+                </td>
+                <td>{{ typeLabels[item.type] }}</td>
+                <td class="num app-num">{{ formatDecimal(item.quantity) }}</td>
+                <td class="num app-num col-avg">{{ item.averageCost | money: item.currency }}</td>
+                <td class="num app-num col-price">
+                  @if (item.currentPrice === null) {
+                    <span class="muted">—</span>
+                  } @else {
+                    {{ item.currentPrice | money: item.currency }}
+                  }
+                </td>
+                <td class="num app-num">
+                  @if (item.marketValue === null) {
+                    <span class="muted">Fiyat yok</span>
+                  } @else {
+                    {{ item.marketValue | money: item.currency }}
+                    @if (item.type === 'US_STOCK' && item.marketValueTry !== null) {
+                      <span class="second">{{ item.marketValueTry | money: 'TRY' }}</span>
+                    }
+                  }
+                </td>
+                <td class="num app-num">
+                  @if (item.unrealizedGain === null) {
+                    <span class="muted">—</span>
+                  } @else {
+                    <span [class]="gainClass(item.unrealizedGain)">
+                      {{ plus(item.unrealizedGain) }}{{ formatPct(item.unrealizedGainPct) }}
+                    </span>
+                    @if (item.type === 'US_STOCK' && item.unrealizedGainTry !== null) {
+                      <span class="second" [class]="gainClass(item.unrealizedGainTry)">
+                        {{ plus(item.unrealizedGainTry) }}{{ item.unrealizedGainTry | money: 'TRY' }}
+                        · {{ plus(item.unrealizedGainTry) }}{{ formatPct(item.unrealizedGainPctTry) }}
+                      </span>
+                    }
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+      <div class="cards app-mobile-only">
         @for (item of p.assets; track item.assetId) {
           <a class="card-link" [routerLink]="['varlik', item.assetId]">
             <article class="asset app-card" data-testid="asset-card">
@@ -358,16 +474,171 @@ import { AllocationItem, Portfolio as PortfolioData, SHORT_TYPE_LABELS } from '.
       font-weight: 600;
       font-size: 12px;
     }
+    .refresh-label {
+      font: 600 14px var(--app-font);
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    @media (min-width: 840px) {
+      :host {
+        max-width: none;
+        padding: 32px 32px 0;
+      }
+      h1 {
+        font-size: 24px;
+        font-weight: 700;
+      }
+      .refresh {
+        width: auto;
+        padding: 0 16px;
+        gap: 8px;
+        border: 1px solid var(--app-border);
+        background: var(--app-surface);
+        border-radius: var(--app-radius-button);
+        display: inline-flex;
+        align-items: center;
+      }
+      .cards3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 24px;
+      }
+      .sum-card {
+        box-sizing: border-box;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        border-radius: var(--app-radius-card);
+      }
+      .sum-value {
+        font-size: 28px;
+        font-weight: 700;
+        line-height: 1.15;
+        letter-spacing: -0.5px;
+      }
+      .sum-pct {
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .gain-card {
+        background: var(--app-accent-soft);
+        color: var(--app-accent-text);
+      }
+      .gain-card .app-label {
+        color: inherit;
+      }
+      .gain-card.loss-card {
+        color: var(--app-danger);
+        background: color-mix(in srgb, var(--app-danger) 14%, transparent);
+      }
+      .strip-web {
+        display: flex;
+        margin-top: 16px;
+        height: 40px;
+      }
+      .strip-web .seg {
+        padding: 0 10px;
+        justify-content: flex-start;
+        text-overflow: ellipsis;
+      }
+      h2 {
+        display: none;
+      }
+      .assets {
+        width: 100%;
+        margin-top: 24px;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: var(--app-surface);
+        border: 1px solid var(--app-border);
+        border-radius: var(--app-radius-card);
+        box-shadow: var(--app-shadow);
+        font-size: 14px;
+      }
+      .assets th {
+        padding: 12px 16px;
+        text-align: left;
+        font: 600 12px var(--app-font);
+        color: var(--app-muted);
+        border-bottom: 1px solid var(--app-border);
+      }
+      .assets td {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--app-border);
+        vertical-align: middle;
+      }
+      .assets tbody tr {
+        cursor: pointer;
+      }
+      .assets tbody tr:hover td {
+        background: var(--app-surface-2);
+      }
+      .assets tbody tr:last-child td {
+        border-bottom: none;
+      }
+      .assets .num {
+        text-align: right;
+        white-space: nowrap;
+      }
+      .assets td .second {
+        display: block;
+        font-size: 12px;
+        color: var(--app-muted);
+      }
+      .assets td .second.gain {
+        color: var(--app-accent-text);
+      }
+      .assets td .second.loss {
+        color: var(--app-danger);
+      }
+      .muted {
+        color: var(--app-muted);
+      }
+      .row-link {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: inherit;
+        text-decoration: none;
+        &:focus-visible {
+          outline: 3px solid var(--app-accent-text);
+          outline-offset: 2px;
+          border-radius: 8px;
+        }
+      }
+      .row-link .info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+    }
+    @media (min-width: 840px) and (max-width: 999px) {
+      .col-avg,
+      .col-price {
+        display: none;
+      }
+    }
   `,
 })
 export class Portfolio {
   private readonly api = inject(InvestmentApi);
+  private readonly router = inject(Router);
 
   protected readonly portfolio = signal<PortfolioData | null>(null);
   protected readonly error = signal(false);
   protected readonly refreshing = signal(false);
   protected readonly refreshMessage = signal<string | null>(null);
   protected readonly shortLabels = SHORT_TYPE_LABELS;
+  protected readonly typeLabels = ASSET_TYPE_LABELS;
   protected readonly formatDecimal = formatDecimal;
   protected readonly formatPct = formatPct;
   protected readonly gainClass = gainClass;
@@ -375,6 +646,13 @@ export class Portfolio {
 
   constructor() {
     this.load();
+  }
+
+  /** Satırın boş yerine tıklayınca varlık geçmişine git (bağlantıya tıklanınca router zaten gider). */
+  protected openAsset(event: Event, assetId: number): void {
+    if (!(event.target as Element).closest('a')) {
+      void this.router.navigate(['/yatirimlar/varlik', assetId]);
+    }
   }
 
   protected refreshPrices(): void {
