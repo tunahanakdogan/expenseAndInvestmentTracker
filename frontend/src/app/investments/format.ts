@@ -47,3 +47,8 @@ export function todayIso(): string {
     day: '2-digit',
   }).format(new Date());
 }
+
+/** Kazançta "+" öneki; kayıpta eksi zaten değerin içinde, sıfırda önek yok. */
+export function plus(value: string | null): '+' | '' {
+  return gainClass(value) === 'gain' ? '+' : '';
+}

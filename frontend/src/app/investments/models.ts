@@ -11,6 +11,15 @@ export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
   GOLD: 'Altın',
 };
 
+/** Kısa tür etiketi (dağılım çubuğu, arama sonuçları). */
+export const SHORT_TYPE_LABELS: Record<AssetType, string> = {
+  BIST_STOCK: 'BIST',
+  US_STOCK: 'ABD',
+  FUND: 'Fon',
+  CURRENCY: 'Döviz',
+  GOLD: 'Altın',
+};
+
 export interface Asset {
   id: number;
   type: AssetType;
@@ -71,6 +80,13 @@ export interface PortfolioItem {
   realizedGainTry: string | null;
 }
 
+/** Varlık türüne göre dağılım; sharePct backend'den hazır gelir (yalnız çubuk genişliği için kullanılır). */
+export interface AllocationItem {
+  type: AssetType;
+  valueTry: string;
+  sharePct: string;
+}
+
 export interface Portfolio {
   totalCostTry: string;
   totalMarketValueTry: string | null;
@@ -78,6 +94,7 @@ export interface Portfolio {
   totalUnrealizedGainPctTry: string | null;
   missingPrices: boolean;
   assets: PortfolioItem[];
+  allocation: AllocationItem[];
 }
 
 /** POST /api/pricing/refresh yanıtı; failed: "RATES" (kurlar) veya "TÜR:SEMBOL". */
