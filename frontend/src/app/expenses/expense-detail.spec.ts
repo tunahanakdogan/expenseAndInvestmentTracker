@@ -1,9 +1,10 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { Expense } from './expense-api';
 import { ExpenseDetail } from './expense-detail';
+import { EXPENSE_ROUTES } from './expenses.routes';
 
 const EXPENSE: Expense = {
   id: 5,
@@ -12,14 +13,14 @@ const EXPENSE: Expense = {
   categoryId: 10,
   categoryName: 'Elektronik',
   description: 'Telefon',
-  date: '2026-11-10',
+  date: '2026-10-10',
   totalAmount: '100.0000',
   currency: 'TRY',
   installmentCount: 3,
   payments: [
-    { installmentNo: 1, period: '2026-11', amount: '33.3300', status: 'ACTIVE' },
-    { installmentNo: 2, period: '2026-12', amount: '33.3300', status: 'ACTIVE' },
-    { installmentNo: 3, period: '2027-01', amount: '33.3400', status: 'ACTIVE' },
+    { installmentNo: 1, period: '2026-10', amount: '33.3300', status: 'ACTIVE' },
+    { installmentNo: 2, period: '2026-11', amount: '33.3300', status: 'ACTIVE' },
+    { installmentNo: 3, period: '2026-12', amount: '33.3400', status: 'ACTIVE' },
   ],
 };
 
@@ -27,19 +28,21 @@ describe('ExpenseDetail', () => {
   let fixture: ComponentFixture<ExpenseDetail>;
   let http: HttpTestingController;
   let el: HTMLElement;
-  let dialogRef: { close: ReturnType<typeof vi.fn> };
+  let navigate: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
-    dialogRef = { close: vi.fn() };
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 15));
     await TestBed.configureTestingModule({
       imports: [ExpenseDetail],
       providers: [
+        provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: MAT_DIALOG_DATA, useValue: { expenseId: 5 } },
-        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '5' }) } } },
       ],
     }).compileComponents();
+    navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     fixture = TestBed.createComponent(ExpenseDetail);
     http = TestBed.inject(HttpTestingController);
     el = fixture.nativeElement;
@@ -50,6 +53,7 @@ describe('ExpenseDetail', () => {
   afterEach(() => {
     http.verify();
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   async function click(selector: string) {
@@ -58,29 +62,38 @@ describe('ExpenseDetail', () => {
   }
 
   async function editThird(value: string) {
-    await click('li:nth-child(3) button.edit');
-    const input = el.querySelector<HTMLInputElement>('li:nth-child(3) input')!;
+    await click('button[aria-label="3. taksiti düzenle"]');
+    const input = el.querySelector<HTMLInputElement>('li input')!;
     input.value = value;
     input.dispatchEvent(new Event('input'));
-    await click('li:nth-child(3) button[type=submit]');
+    await click('li button[type=submit]');
   }
 
-  it('harcamayı tüm taksitleriyle gösterir', () => {
+  it('rota tam ekran verisiyle tanımlıdır ve yeni, :id\'den önce gelir', () => {
+    const paths = EXPENSE_ROUTES.map((r) => r.path);
+    expect(paths).toEqual(['', 'yeni', ':id']);
+    expect(EXPENSE_ROUTES[1].data).toEqual({ fullscreen: true });
+    expect(EXPENSE_ROUTES[2].data).toEqual({ fullscreen: true });
+  });
+
+  it('başlık, meta, toplam ve taksit özetini gösterir', () => {
+    expect(el.querySelector('h1')?.textContent).toBe('Telefon');
+    expect(el.querySelector('.meta')?.textContent).toContain('Elektronik · Bonus · 10 Ekim 2026');
+    expect(el.querySelector('.total')?.textContent?.trim()).toBe('100,00 ₺');
+    expect(el.querySelector('.sub')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('3 taksit · ayda 33,33 ₺');
+    expect(el.querySelector('a[aria-label="Geri"]')?.getAttribute('href')).toBe('/harcamalar');
+  });
+
+  it('ilerleme şeridi adet bazlı: geçmiş, bu ay, gelecek', () => {
+    const segments = Array.from(el.querySelectorAll('.segment')).map((s) => s.className.replace('segment', '').trim());
+    expect(segments).toEqual(['past', 'current', 'future']);
+    expect(el.querySelector('.segments')?.getAttribute('aria-label')).toBe('3 taksitten 2 tanesi bu aya kadar');
+  });
+
+  it('taksitleri ve bu ayı gösterir', () => {
     expect(el.querySelectorAll('li').length).toBe(3);
-    for (const text of [
-      'Elektronik',
-      'Telefon',
-      'Bonus',
-      '10.11.2026',
-      '1/3',
-      '3/3',
-      'Kasım 2026',
-      'Ocak 2027',
-      '33,33 ₺',
-      '33,34 ₺',
-      '100,00 ₺',
-    ]) {
-      expect(el.textContent).toContain(text);
+    for (const text of ['1/3', '3/3', 'Ekim 2026', 'Aralık 2026', '33,34 ₺', 'bu ay']) {
+      expect(el.querySelector('ul')?.textContent).toContain(text);
     }
   });
 
@@ -100,9 +113,6 @@ describe('ExpenseDetail', () => {
     expect(el.textContent).toContain('106,66 ₺');
     expect(el.textContent).toContain('40,00 ₺');
     expect(el.querySelector('li input')).toBeNull();
-
-    await click('button.close');
-    expect(dialogRef.close).toHaveBeenCalledWith(true);
   });
 
   it('geçersiz taksit tutarında istek atmaz', async () => {
@@ -111,7 +121,7 @@ describe('ExpenseDetail', () => {
 
       http.expectNone('/api/expenses/5/payments/3');
       expect(el.querySelector('[role=alert]')?.textContent).toContain('Geçerli bir tutar gir');
-      await click('li:nth-child(3) button[type=button]');
+      await click('li button[type=button]');
     }
   });
 
@@ -124,16 +134,10 @@ describe('ExpenseDetail', () => {
     await fixture.whenStable();
 
     expect(el.querySelector('[role=alert]')?.textContent).toContain('Taksit bulunamadı');
-    expect(el.querySelector('li:nth-child(3) input')).not.toBeNull();
+    expect(el.querySelector('li input')).not.toBeNull();
   });
 
-  it('değişiklik yoksa false ile kapanır', async () => {
-    await click('button.close');
-
-    expect(dialogRef.close).toHaveBeenCalledWith(false);
-  });
-
-  it('silme onaylanınca DELETE atar ve true ile kapanır', async () => {
+  it('silme onaylanınca DELETE atar ve listeye döner', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
     await click('button.delete');
 
@@ -142,7 +146,7 @@ describe('ExpenseDetail', () => {
     expect(req.request.method).toBe('DELETE');
     req.flush(null);
 
-    expect(dialogRef.close).toHaveBeenCalledWith(true);
+    expect(navigate).toHaveBeenCalledWith(['/harcamalar']);
   });
 
   it('silme onaylanmazsa istek atmaz', async () => {
@@ -150,6 +154,6 @@ describe('ExpenseDetail', () => {
     await click('button.delete');
 
     http.expectNone('/api/expenses/5');
-    expect(dialogRef.close).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

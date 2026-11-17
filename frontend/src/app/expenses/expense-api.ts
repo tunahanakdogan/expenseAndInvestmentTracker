@@ -22,10 +22,20 @@ export interface CurrencyTotal {
   amount: string;
 }
 
+/** Para birimi başına kategori toplamı; `sharePct` o para birimindeki toplamın yüzdesi (backend hesaplar). */
+export interface CategoryTotal {
+  categoryId: number;
+  name: string;
+  currency: string;
+  amount: string;
+  sharePct: string;
+}
+
 export interface PeriodPayments {
   period: string;
   payments: PaymentRow[];
   totals: CurrencyTotal[];
+  categoryTotals: CategoryTotal[];
 }
 
 export interface ExpensePayment {

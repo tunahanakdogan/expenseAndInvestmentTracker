@@ -1,7 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AssetApi } from './asset-api';
@@ -12,56 +11,64 @@ import { Asset, InvestmentTransaction } from './models';
 /** Bir varlığın işlem geçmişi; işlem (ve işlemi kalmayan varlık) buradan silinir. */
 @Component({
   selector: 'app-asset-transactions',
-  imports: [DatePipe, MatButtonModule, MatIconModule, RouterLink],
+  imports: [DatePipe, MatIconModule, RouterLink],
   template: `
-    <a class="back" routerLink="/yatirimlar">‹ Yatırımlar</a>
-    @if (assetMissing()) {
-      <h1>Varlık bulunamadı</h1>
-    } @else {
-      @if (asset(); as a) {
-        <h1>{{ a.name }}</h1>
-        <p class="subtitle">{{ a.symbol }}</p>
-      }
+    <header>
+      <a class="app-icon-button" routerLink="/yatirimlar" aria-label="Geri">
+        <mat-icon fontSet="material-symbols-outlined">arrow_back</mat-icon>
+      </a>
+      <div class="titles">
+        @if (assetMissing()) {
+          <h1>Varlık bulunamadı</h1>
+        } @else if (asset(); as a) {
+          <h1>{{ a.name }}</h1>
+          <p class="subtitle">{{ a.symbol }}</p>
+        }
+      </div>
+    </header>
+    @if (!assetMissing()) {
       @if (error(); as message) {
         <p class="error" role="alert">{{ message }}</p>
       }
       @if (transactions(); as list) {
         @if (list.length === 0) {
-          <p>Bu varlıkta işlem yok</p>
-          <button matButton="outlined" type="button" (click)="deleteAsset()">Varlığı sil</button>
+          <p class="empty">Bu varlıkta işlem yok</p>
+          <button class="outline" type="button" (click)="deleteAsset()">Varlığı sil</button>
+        } @else {
+          <ul class="app-card">
+            @for (tx of list; track tx.id) {
+              <li data-testid="tx-row">
+                <div class="main">
+                  <strong [class.sell]="tx.type === 'SELL'">{{
+                    tx.type === 'BUY' ? 'Alış' : 'Satış'
+                  }}</strong>
+                  <span class="muted">{{ tx.tradeDate | date: 'dd.MM.yyyy' }}</span>
+                  <span class="app-num amount">
+                    {{ formatDecimal(tx.quantity) }} × {{ formatDecimal(tx.unitPrice) }}
+                    {{ tx.currency }}
+                  </span>
+                  @if (hasValue(tx.commission)) {
+                    <span class="muted">Komisyon: {{ formatDecimal(tx.commission) }}</span>
+                  }
+                  @if (tx.fxRateTry) {
+                    <span class="muted">Kur: {{ formatDecimal(tx.fxRateTry) }}</span>
+                  }
+                </div>
+                <button
+                  type="button"
+                  class="app-icon-button"
+                  aria-label="İşlemi sil"
+                  (click)="deleteTransaction(tx)"
+                >
+                  <mat-icon fontSet="material-symbols-outlined">delete</mat-icon>
+                </button>
+              </li>
+            }
+          </ul>
         }
-        <ul>
-          @for (tx of list; track tx.id) {
-            <li data-testid="tx-row">
-              <div class="main">
-                <strong>{{ tx.type === 'BUY' ? 'Alış' : 'Satış' }}</strong>
-                <span>{{ tx.tradeDate | date: 'dd.MM.yyyy' }}</span>
-                <span>
-                  {{ formatDecimal(tx.quantity) }} × {{ formatDecimal(tx.unitPrice) }}
-                  {{ tx.currency }}
-                </span>
-                @if (hasValue(tx.commission)) {
-                  <span class="muted">Komisyon: {{ formatDecimal(tx.commission) }}</span>
-                }
-                @if (tx.fxRateTry) {
-                  <span class="muted">Kur: {{ formatDecimal(tx.fxRateTry) }}</span>
-                }
-              </div>
-              <button
-                matIconButton
-                type="button"
-                aria-label="İşlemi sil"
-                (click)="deleteTransaction(tx)"
-              >
-                <mat-icon fontSet="material-symbols-outlined">delete</mat-icon>
-              </button>
-            </li>
-          }
-        </ul>
       }
       <a
-        matButton="filled"
-        class="add"
+        class="app-primary add"
         routerLink="/yatirimlar/islem"
         [queryParams]="{ varlik: assetId }"
       >
@@ -70,44 +77,85 @@ import { Asset, InvestmentTransaction } from './models';
     }
   `,
   styles: `
-    .back {
-      color: var(--mat-sys-primary);
-      text-decoration: none;
+    :host {
+      display: block;
+      box-sizing: border-box;
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 18px 20px 24px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
     }
     h1 {
-      font: var(--mat-sys-headline-small);
-      margin: 8px 0 0;
-    }
-    .subtitle,
-    .muted {
-      color: var(--mat-sys-on-surface-variant);
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
     }
     .subtitle {
-      margin: 0 0 12px;
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--app-muted);
+    }
+    .muted,
+    .empty {
+      color: var(--app-muted);
+      font-size: 13px;
     }
     .error {
-      color: var(--mat-sys-error);
+      color: var(--app-danger);
     }
     ul {
       list-style: none;
       margin: 0 0 16px;
-      padding: 0;
+      padding: 4px 14px;
     }
     li {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 0;
-      border-bottom: 1px solid var(--mat-sys-outline-variant);
+      padding: 10px 0;
+      border-bottom: 1px solid var(--app-border);
+      &:last-child {
+        border-bottom: none;
+      }
     }
     .main {
       flex: 1;
+      min-width: 0;
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
       gap: 2px 12px;
     }
+    .main strong {
+      color: var(--app-accent-text);
+    }
+    .main strong.sell {
+      color: var(--app-danger);
+    }
+    .amount {
+      font-weight: 600;
+    }
+    .outline {
+      min-height: 44px;
+      padding: 0 16px;
+      border-radius: var(--app-radius-button);
+      border: 1px solid var(--app-border);
+      background: var(--app-surface);
+      color: var(--app-text);
+      font: 600 15px var(--app-font);
+      cursor: pointer;
+      margin-bottom: 16px;
+    }
     .add {
-      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
     }
   `,
 })

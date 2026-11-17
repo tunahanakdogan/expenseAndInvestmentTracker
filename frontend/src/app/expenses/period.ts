@@ -24,3 +24,29 @@ export function periodLabel(period: string): string {
   const [year, month] = period.split('-').map(Number);
   return new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1));
 }
+
+function parseIso(date: string): Date {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+/** 'yyyy-MM-dd' → '15 Kas' */
+export function shortDate(date: string): string {
+  return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short' }).format(parseIso(date)).replace('.', '');
+}
+
+/** 'yyyy-MM-dd' → '8 Ekim 2026' */
+export function longDate(date: string): string {
+  return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }).format(parseIso(date));
+}
+
+/**
+ * Kredi kartı harcamasının ilk ekstre dönemi (docs/domain.md): etkin kesim günü = min(kesim günü, ayın son günü);
+ * harcama günü ≤ etkin kesim günü ise harcama ayı, değilse sonraki ay.
+ */
+export function statementPeriod(date: string, statementDay: number): string {
+  const d = parseIso(date);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  const effective = Math.min(statementDay, lastDay);
+  return shiftPeriod(currentPeriod(d), d.getDate() <= effective ? 0 : 1);
+}

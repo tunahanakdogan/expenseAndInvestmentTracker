@@ -13,6 +13,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.tunahan.finans.ExpenseTestSupport.asUser;
 import static com.tunahan.finans.ExpenseTestSupport.idOf;
@@ -254,6 +255,31 @@ class ExpenseControllerTest {
     }
 
     @Test
+    void periodListGivesCategoryTotalsWithSharePerCurrency() {
+        long cash = createAccount(user, CASH);
+        long bank = createAccount(user, USD_BANK);
+        long market = createCategory(user, "Market");
+        createExpense(user, cash, market, "200.00", "2026-11-03", 1);
+        createExpense(user, cash, market, "100.00", "2026-11-04", 1);
+        createExpense(user, cash, category, "50.00", "2026-11-05", 1);
+        createExpense(user, cash, category, "50.00", "2026-11-06", 1);
+        createExpense(user, bank, market, "20.00", "2026-11-07", 1);
+        createExpense(user, cash, category, "1.00", "2026-11-08", 1);
+        reload();
+
+        MvcTestResult listed = list(user, "2026-11");
+
+        // TRY: Market 300 / 401 = %74,81; Elektronik 101 / 401 = %25,19. USD: Market %100.
+        assertThat(listed).bodyJson().extractingPath("$.categoryTotals").isEqualTo(List.of(
+                Map.of("categoryId", (int) market, "name", "Market", "currency", "TRY",
+                        "amount", "300.0000", "sharePct", "74.81"),
+                Map.of("categoryId", (int) category, "name", "Elektronik", "currency", "TRY",
+                        "amount", "101.0000", "sharePct", "25.19"),
+                Map.of("categoryId", (int) market, "name", "Market", "currency", "USD",
+                        "amount", "20.0000", "sharePct", "100.00")));
+    }
+
+    @Test
     void sameDayExpensesAreListedNewestFirst() {
         long cash = createAccount(user, CASH);
         long first = idOf(createExpense(user, cash, category, "1.00", "2026-11-10", 1));
@@ -271,6 +297,7 @@ class ExpenseControllerTest {
         assertThat(listed).hasStatusOk();
         assertThat(listed).bodyJson().extractingPath("$.payments.length()").isEqualTo(0);
         assertThat(listed).bodyJson().extractingPath("$.totals.length()").isEqualTo(0);
+        assertThat(listed).bodyJson().extractingPath("$.categoryTotals.length()").isEqualTo(0);
     }
 
     @Test
