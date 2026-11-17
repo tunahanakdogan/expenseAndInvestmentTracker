@@ -391,8 +391,9 @@ const CURRENCY_SYMBOLS: Record<string, string> = { TRY: '₺', USD: '$', EUR: '�
       color: var(--app-muted);
     }
     @media (min-width: 840px) {
+      /* Web: ortadaki panel (.app-sheet-panel) 480 px; burada yalnız iç boşluk değişir. */
       .page {
-        max-width: none;
+        max-width: 480px;
         margin: 0;
         padding: 20px 24px 24px;
       }

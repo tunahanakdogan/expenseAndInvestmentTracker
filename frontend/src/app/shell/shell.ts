@@ -124,14 +124,6 @@ import { filter, map, startWith } from 'rxjs';
     .rail {
       display: none;
     }
-    /* Tablet / dar pencere: telefon düzeni, içerik ortada 640 px. */
-    @media (min-width: 600px) and (max-width: 839px) {
-      main.with-nav > :not(router-outlet) {
-        display: block;
-        max-width: 640px;
-        margin: 0 auto;
-      }
-    }
     @media (min-width: 840px) {
       .bottom {
         display: none;
@@ -139,12 +131,6 @@ import { filter, map, startWith } from 'rxjs';
       main.with-nav {
         padding-bottom: 0;
         margin-left: 112px;
-      }
-      /* Sayfa bileşeni (router-outlet'in kardeşi) en fazla 1200 px, ortalı. */
-      main.with-nav > :not(router-outlet) {
-        display: block;
-        max-width: 1200px;
-        margin: 0 auto;
       }
       .rail {
         position: fixed;

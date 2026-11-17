@@ -431,9 +431,9 @@ import { currentPeriod, periodLabel, shiftPeriod, shortDate } from './period';
       border-radius: 12px;
     }
     @media (min-width: 840px) {
+      /* Genişlik sınırını (1200 px) kabuk verir; burada yalnız kenar boşlukları. */
       :host {
-        max-width: none;
-        padding: 28px 0 0;
+        padding: 28px 40px 0;
       }
       .page-title {
         position: static;

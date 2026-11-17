@@ -185,6 +185,25 @@ a {
 // --- Responsive (docs/superpowers/specs/2026-11-17-ui-gece-design.md → "Responsive düzen") ---
 // Kırılma noktaları: < 600 telefon, 600–839 tablet, ≥ 840 web (yan ray).
 
+// Kabuktaki sayfa genişliği. Global olmak zorunda: router-outlet'e eklenen sayfa bileşenlerine kabuğun
+// kapsüllenmiş stilleri ulaşmaz. Seçicisi bileşenlerin :host kurallarından güçlüdür.
+@media (min-width: 600px) and (max-width: 839px) {
+  app-shell main.with-nav > :not(router-outlet) {
+    display: block;
+    box-sizing: border-box;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+}
+@media (min-width: 840px) {
+  app-shell main.with-nav > :not(router-outlet) {
+    display: block;
+    box-sizing: border-box;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+}
+
 // Tam ekran sayfa (hızlı giriş, detay, form): telefonda tüm ekran; web'de karartılmış zemin üstünde
 // ortada panel. Kullanım: <div class="app-sheet"><div class="app-sheet-panel">…</div></div>
 .app-sheet {
