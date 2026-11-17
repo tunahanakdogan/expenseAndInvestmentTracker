@@ -1,31 +1,35 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { MoneyPipe } from '../shared/money.pipe';
-import { formatDecimal, formatPct, gainClass } from './format';
+import { formatDecimal, formatPct, gainClass, plus } from './format';
 import { InvestmentApi } from './investment-api';
-import { ASSET_TYPE_LABELS, Portfolio as PortfolioData } from './models';
+import { AllocationItem, Portfolio as PortfolioData, SHORT_TYPE_LABELS } from './models';
 
-/** Yatırımlar ana sayfası: TRY toplamları ve varlık kartları. Tüm sayılar backend'den hazır gelir. */
+/** Yatırımlar ana sayfası: TRY toplamı, dağılım çubuğu ve varlık kartları. Tüm sayılar backend'den hazır gelir. */
 @Component({
   selector: 'app-portfolio',
-  imports: [DatePipe, MatButtonModule, MatCardModule, MatIconModule, MoneyPipe, RouterLink],
+  imports: [DatePipe, MatIconModule, MoneyPipe, RouterLink],
   template: `
     <header>
-      <h1>Yatırımlar</h1>
-      <button
-        matButton
-        (click)="refreshPrices()"
-        [disabled]="refreshing()"
-        aria-label="Fiyatları güncelle"
-      >
-        <mat-icon fontSet="material-symbols-outlined">refresh</mat-icon>
-        Fiyatları güncelle
-      </button>
+      <h1>Portföy</h1>
+      <div class="actions">
+        <button
+          type="button"
+          class="app-icon-button refresh"
+          [class.spin]="refreshing()"
+          (click)="refreshPrices()"
+          [disabled]="refreshing()"
+          aria-label="Fiyatları güncelle"
+        >
+          <mat-icon fontSet="material-symbols-outlined">refresh</mat-icon>
+        </button>
+        <a class="app-icon-button" routerLink="/ayarlar" aria-label="Ayarlar">
+          <mat-icon fontSet="material-symbols-outlined">settings</mat-icon>
+        </a>
+      </div>
     </header>
     @if (refreshMessage(); as message) {
       <p class="refresh-status" role="status">{{ message }}</p>
@@ -34,205 +38,325 @@ import { ASSET_TYPE_LABELS, Portfolio as PortfolioData } from './models';
       <p class="error" role="alert">Portföy yüklenemedi</p>
     } @else if (portfolio(); as p) {
       <section class="summary" aria-label="Portföy özeti">
-        <div class="total">
-          <span class="label">Toplam değer</span>
-          <strong>
-            {{
-              p.totalMarketValueTry === null ? 'Fiyat yok' : (p.totalMarketValueTry | money: 'TRY')
-            }}
-          </strong>
-        </div>
-        <div>
-          <span class="label">Maliyet</span>
-          <span>{{ p.totalCostTry | money: 'TRY' }}</span>
-        </div>
-        @if (p.totalUnrealizedGainTry !== null) {
-          <div>
-            <span class="label">Getiri</span>
-            <span [class]="gainClass(p.totalUnrealizedGainTry)">
-              {{ p.totalUnrealizedGainTry | money: 'TRY' }}
-              {{ formatPct(p.totalUnrealizedGainPctTry) }}
+        <span class="app-label">Toplam değer</span>
+        <strong class="total app-num">
+          {{ p.totalMarketValueTry === null ? 'Fiyat yok' : (p.totalMarketValueTry | money: 'TRY') }}
+        </strong>
+        <div class="sub">
+          @if (p.totalUnrealizedGainTry !== null) {
+            <span
+              class="badge app-num"
+              [class.loss-badge]="gainClass(p.totalUnrealizedGainTry) === 'loss'"
+              data-testid="gain-badge"
+            >
+              {{ plus(p.totalUnrealizedGainTry) }}{{ p.totalUnrealizedGainTry | money: 'TRY' }}
+              @if (p.totalUnrealizedGainPctTry !== null) {
+                · {{ formatPct(p.totalUnrealizedGainPctTry) }}
+              }
             </span>
-          </div>
-        }
+          }
+          <span class="cost">maliyet {{ p.totalCostTry | money: 'TRY' }}</span>
+        </div>
       </section>
+      @if (p.allocation.length > 0) {
+        <div class="strip" role="img" [attr.aria-label]="allocationText(p.allocation)">
+          @for (seg of p.allocation; track seg.type; let i = $index) {
+            <div
+              [class]="'seg seg-' + (i > 3 ? 3 : i)"
+              [style.flex]="seg.sharePct"
+              data-testid="alloc-segment"
+            >
+              {{ i === 0 ? shortLabels[seg.type] + ' ' : '' }}%{{ formatDecimal(seg.sharePct) }}
+            </div>
+          }
+        </div>
+        <ul class="legend" aria-hidden="true">
+          @for (seg of p.allocation; track seg.type; let i = $index) {
+            <li data-testid="alloc-legend">
+              <i [class]="'dot seg-' + (i > 3 ? 3 : i)"></i>{{ shortLabels[seg.type] }}
+            </li>
+          }
+        </ul>
+      }
       @if (p.missingPrices) {
         <p class="warning">Bazı varlıkların fiyatı yok; toplam değere katılmadı</p>
       }
+      <h2>Varlıklar</h2>
       @if (p.assets.length === 0) {
         <p class="empty">Henüz varlık yok. + ile ilk işlemini ekle</p>
       }
       <div class="cards">
         @for (item of p.assets; track item.assetId) {
           <a class="card-link" [routerLink]="['varlik', item.assetId]">
-            <mat-card appearance="outlined" data-testid="asset-card">
-              <mat-card-header>
-                <mat-card-title>{{ item.name }}</mat-card-title>
-                <mat-card-subtitle
-                  >{{ item.symbol }} · {{ typeLabels[item.type] }}</mat-card-subtitle
-                >
-              </mat-card-header>
-              <mat-card-content>
-                <dl>
-                  <div>
-                    <dt>Adet</dt>
-                    <dd>{{ formatDecimal(item.quantity) }}</dd>
-                  </div>
-                  <div>
-                    <dt>Ort. maliyet</dt>
-                    <dd>{{ item.averageCost | money: item.currency }}</dd>
-                  </div>
-                  <div>
-                    <dt>Güncel değer</dt>
-                    <dd>
-                      {{
-                        item.marketValue === null
-                          ? 'Fiyat yok'
-                          : (item.marketValue | money: item.currency)
-                      }}
-                    </dd>
-                  </div>
-                  @if (item.unrealizedGain !== null) {
-                    <div>
-                      <dt>Getiri</dt>
-                      <dd [class]="gainClass(item.unrealizedGain)">
-                        {{ item.unrealizedGain | money: item.currency }}
-                        {{ formatPct(item.unrealizedGainPct) }}
-                      </dd>
-                    </div>
-                  }
-                  @if (item.type === 'US_STOCK') {
-                    <div>
-                      <dt>Ort. maliyet (TL)</dt>
-                      <dd>{{ item.averageCostTry | money: 'TRY' }}</dd>
-                    </div>
-                    @if (item.marketValueTry !== null) {
-                      <div>
-                        <dt>Güncel değer (TL)</dt>
-                        <dd [class]="gainClass(item.unrealizedGainTry)">
-                          {{ item.marketValueTry | money: 'TRY' }}
-                          {{ formatPct(item.unrealizedGainPctTry) }}
-                        </dd>
-                      </div>
-                    }
-                  }
-                  @if (gainClass(item.realizedGain) !== '') {
-                    <div>
-                      <dt>Gerçekleşen</dt>
-                      <dd [class]="gainClass(item.realizedGain)">
-                        {{ item.realizedGain | money: item.currency }}
-                      </dd>
-                    </div>
-                  }
-                  @if (item.priceDate) {
-                    <div class="muted">
-                      <dt>Fiyat tarihi</dt>
-                      <dd>{{ item.priceDate | date: 'dd.MM.yyyy' }}</dd>
-                    </div>
-                  }
-                </dl>
-              </mat-card-content>
-            </mat-card>
+            <article class="asset app-card" data-testid="asset-card">
+              <span class="badge-box app-num" aria-hidden="true">{{ item.symbol.slice(0, 3) }}</span>
+              <div class="info">
+                <span class="name">{{ item.name }}</span>
+                <span class="meta">
+                  {{ item.symbol }} · {{ formatDecimal(item.quantity) }} adet · ort.
+                  {{ item.averageCost | money: item.currency }}
+                </span>
+                @if (item.priceDate) {
+                  <span class="meta">Fiyat tarihi {{ item.priceDate | date: 'dd.MM.yyyy' }}</span>
+                }
+              </div>
+              <div class="values">
+                @if (item.marketValue === null) {
+                  <span class="value muted">Fiyat yok</span>
+                } @else {
+                  <span class="value app-num">{{ item.marketValue | money: item.currency }}</span>
+                }
+                @if (item.unrealizedGain !== null) {
+                  <span class="pct app-num" [class]="gainClass(item.unrealizedGain)">
+                    {{ plus(item.unrealizedGain) }}{{ formatPct(item.unrealizedGainPct) }}
+                  </span>
+                }
+                @if (item.type === 'US_STOCK' && item.marketValueTry !== null) {
+                  <span class="pct app-num" [class]="gainClass(item.unrealizedGainTry)">
+                    {{ item.marketValueTry | money: 'TRY' }} ·
+                    {{ plus(item.unrealizedGainTry) }}{{ formatPct(item.unrealizedGainPctTry) }}
+                  </span>
+                }
+                @if (gainClass(item.realizedGain) !== '') {
+                  <span class="meta">
+                    Gerçekleşen
+                    <span [class]="gainClass(item.realizedGain)">{{
+                      item.realizedGain | money: item.currency
+                    }}</span>
+                  </span>
+                }
+              </div>
+            </article>
           </a>
         }
       </div>
     } @else {
-      <p>Yükleniyor…</p>
+      <p class="loading">Yükleniyor…</p>
     }
-    <a matFab class="fab" routerLink="islem" aria-label="İşlem ekle">
-      <mat-icon fontSet="material-symbols-outlined">add</mat-icon>
-    </a>
   `,
   styles: `
+    :host {
+      display: block;
+      box-sizing: border-box;
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 22px 20px 0;
+    }
     header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      margin: 0 0 12px;
     }
     h1 {
-      font: var(--mat-sys-headline-small);
       margin: 0;
+      font-size: 15px;
+      font-weight: 600;
     }
-    .refresh-status {
-      color: var(--mat-sys-on-surface-variant);
-      margin: 0 0 12px;
-    }
-    .summary {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px 16px;
-      margin-bottom: 16px;
-    }
-    .summary > div {
+    .actions {
       display: flex;
-      flex-direction: column;
+      gap: 8px;
     }
-    .summary .total {
-      grid-column: 1 / -1;
+    .refresh {
+      color: var(--app-accent-text);
     }
-    .summary strong {
-      font: var(--mat-sys-headline-medium);
+    .refresh:disabled {
+      opacity: 0.6;
+      cursor: default;
     }
-    .label,
-    dt {
-      color: var(--mat-sys-on-surface-variant);
-      font: var(--mat-sys-label-medium);
+    .spin mat-icon {
+      animation: spin 1s linear infinite;
     }
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .spin mat-icon {
+        animation: none;
+      }
+    }
+    .refresh-status,
+    .loading,
+    .empty,
     .warning {
-      color: var(--mat-sys-on-surface-variant);
-      margin: 0 0 12px;
+      color: var(--app-muted);
+      font-size: 13px;
+      margin: 12px 0 0;
     }
     .error {
-      color: var(--mat-sys-error);
+      color: var(--app-danger);
+    }
+    .summary {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-top: 22px;
+    }
+    .summary .app-label {
+      font-size: 13px;
+    }
+    .total {
+      font-weight: 700;
+      font-size: 44px;
+      line-height: 1.1;
+      letter-spacing: -1px;
+    }
+    .sub {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 14px;
+      background: var(--app-accent-soft);
+      color: var(--app-accent-text);
+      font-weight: 600;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+    }
+    .badge.loss-badge {
+      color: var(--app-danger);
+      background: color-mix(in srgb, var(--app-danger) 16%, transparent);
+    }
+    .cost {
+      font-size: 13px;
+      color: var(--app-muted);
+    }
+    .strip {
+      margin-top: 22px;
+      display: flex;
+      height: 36px;
+      border-radius: 12px;
+      overflow: hidden;
+      gap: 3px;
+    }
+    .seg {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      overflow: hidden;
+      font: 600 12px var(--app-font);
+    }
+    .seg-0 {
+      background: var(--app-accent);
+      color: var(--app-accent-ink);
+    }
+    .strip .seg-0 {
+      justify-content: flex-start;
+      padding-left: 10px;
+    }
+    .seg-1 {
+      background: var(--app-gold);
+      color: var(--app-accent-ink);
+    }
+    .seg-2 {
+      background: var(--app-slate);
+      color: #fff;
+    }
+    .seg-3 {
+      background: var(--app-surface-2);
+      color: var(--app-text);
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      list-style: none;
+      margin: 8px 0 0;
+      padding: 0;
+      font-size: 12px;
+      color: var(--app-muted);
+    }
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 4px;
+      margin-right: 6px;
+      border: 1px solid var(--app-border);
+    }
+    h2 {
+      margin: 26px 0 6px;
+      padding: 0 8px;
+      font-size: 15px;
+      font-weight: 600;
     }
     .cards {
-      display: grid;
-      gap: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
     .card-link {
       color: inherit;
       text-decoration: none;
+      border-radius: var(--app-radius-card);
+      &:focus-visible {
+        outline: 3px solid var(--app-accent-text);
+        outline-offset: 2px;
+      }
     }
-    dl {
-      margin: 8px 0 0;
-      display: grid;
-      gap: 4px;
-    }
-    dl > div {
+    .asset {
+      box-sizing: border-box;
+      min-height: 44px;
+      padding: 14px;
       display: flex;
-      justify-content: space-between;
+      align-items: center;
       gap: 12px;
     }
-    dd {
-      margin: 0;
+    .badge-box {
+      width: 42px;
+      height: 42px;
+      flex: none;
+      border-radius: 12px;
+      background: var(--app-surface-2);
+      color: var(--app-accent-text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 12px;
+    }
+    .info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .name {
+      font-size: 15px;
+      font-weight: 500;
+    }
+    .meta {
+      font-size: 12px;
+      color: var(--app-muted);
+    }
+    .values {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
       text-align: right;
     }
-    :host {
-      /* Material'da "başarı" rengi yok; tema --app-success-color tanımlarsa o kullanılır. */
-      --gain-color: var(--app-success-color, #1b7f3b);
+    .value {
+      font-weight: 600;
+      font-size: 15px;
     }
-    .gain {
-      color: var(--gain-color);
+    .value.muted {
+      font: 500 13px var(--app-font);
+      color: var(--app-muted);
     }
-    .loss {
-      color: var(--mat-sys-error);
-    }
-    .fab {
-      position: fixed;
-      right: 16px;
-      bottom: calc(80px + env(safe-area-inset-bottom));
-      z-index: 1;
-    }
-    @media (min-width: 840px) {
-      .cards {
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      }
-      .fab {
-        right: 24px;
-        bottom: 24px;
-      }
+    .pct {
+      font-weight: 600;
+      font-size: 12px;
     }
   `,
 })
@@ -243,10 +367,11 @@ export class Portfolio {
   protected readonly error = signal(false);
   protected readonly refreshing = signal(false);
   protected readonly refreshMessage = signal<string | null>(null);
-  protected readonly typeLabels = ASSET_TYPE_LABELS;
+  protected readonly shortLabels = SHORT_TYPE_LABELS;
   protected readonly formatDecimal = formatDecimal;
   protected readonly formatPct = formatPct;
   protected readonly gainClass = gainClass;
+  protected readonly plus = plus;
 
   constructor() {
     this.load();
@@ -270,6 +395,12 @@ export class Portfolio {
         );
       },
     });
+  }
+
+  /** Erişilebilir ad: "Varlık dağılımı: BIST %65, Altın %18". */
+  protected allocationText(allocation: AllocationItem[]): string {
+    const parts = allocation.map((a) => `${SHORT_TYPE_LABELS[a.type]} %${formatDecimal(a.sharePct)}`);
+    return `Varlık dağılımı: ${parts.join(', ')}`;
   }
 
   private load(): void {

@@ -63,6 +63,10 @@ const FULL: PortfolioData = {
   totalUnrealizedGainPctTry: '70.87',
   missingPrices: false,
   assets: [AAPL, THYAO],
+  allocation: [
+    { type: 'US_STOCK', valueTry: '38130.0000', sharePct: '95.14' },
+    { type: 'BIST_STOCK', valueTry: '1950.0000', sharePct: '4.86' },
+  ],
 };
 
 describe('Portfolio', () => {
@@ -169,6 +173,7 @@ describe('Portfolio', () => {
       totalUnrealizedGainPctTry: null,
       missingPrices: false,
       assets: [],
+      allocation: [],
     });
 
     expect(el.textContent).toContain('Henüz varlık yok');
@@ -181,10 +186,57 @@ describe('Portfolio', () => {
     expect(el.querySelector('[role=alert]')?.textContent).toContain('Portföy yüklenemedi');
   });
 
-  it('işlem ekleme bağlantısı vardır', async () => {
+  it('eski FAB yok; ayarlar bağlantısı var', async () => {
     await load(FULL);
 
-    expect(el.querySelector('a[aria-label="İşlem ekle"]')).not.toBeNull();
+    expect(el.querySelector('a[aria-label="İşlem ekle"]')).toBeNull();
+    expect(el.querySelector('a[aria-label="Ayarlar"]')?.getAttribute('href')).toBe('/ayarlar');
+  });
+
+  it('dağılım çubuğunu allocation alanından çizer', async () => {
+    await load(FULL);
+
+    const segments = Array.from(el.querySelectorAll<HTMLElement>('[data-testid=alloc-segment]'));
+    expect(segments).toHaveLength(2);
+    expect(segments[0].textContent).toContain('ABD %95,14');
+    expect(segments[0].style.flex).toContain('95.14');
+    expect(segments[0].className).toContain('seg-0');
+    expect(segments[1].textContent?.trim()).toBe('%4,86');
+    expect(segments[1].className).toContain('seg-1');
+    expect(el.querySelector('.strip')?.getAttribute('aria-label')).toBe(
+      'Varlık dağılımı: ABD %95,14, BIST %4,86',
+    );
+    const legend = Array.from(el.querySelectorAll('[data-testid=alloc-legend]'));
+    expect(legend.map((l) => l.textContent?.trim())).toEqual(['ABD', 'BIST']);
+  });
+
+  it('allocation boşsa çubuk gösterilmez', async () => {
+    await load({ ...FULL, allocation: [] });
+
+    expect(el.querySelector('[data-testid=alloc-segment]')).toBeNull();
+  });
+
+  it('kazanç rozeti artı işaretiyle ve maliyetle gösterilir', async () => {
+    await load(FULL);
+
+    const badge = el.querySelector('[data-testid=gain-badge]')!;
+    expect(badge.textContent).toContain('+16.623,00 ₺');
+    expect(badge.textContent).toContain('%70,87');
+    expect(badge.classList).not.toContain('loss-badge');
+    expect(el.textContent).toContain('maliyet 23.457,00 ₺');
+  });
+
+  it('zarar rozeti loss-badge varyantını kullanır', async () => {
+    await load({
+      ...FULL,
+      totalUnrealizedGainTry: '-500.0000',
+      totalUnrealizedGainPctTry: '-2.09',
+    });
+
+    const badge = el.querySelector('[data-testid=gain-badge]')!;
+    expect(badge.classList).toContain('loss-badge');
+    expect(badge.textContent).toContain('-500,00 ₺');
+    expect(badge.textContent).not.toContain('+');
   });
 
   describe('Fiyatları güncelle', () => {
