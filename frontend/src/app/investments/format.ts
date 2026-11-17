@@ -9,7 +9,9 @@ function isNegative(value: string): boolean {
 export function formatDecimal(value: string): string {
   const digits = value.replace('-', '');
   const trimmed = digits.includes('.') ? digits.replace(/0+$/, '').replace(/\.$/, '') : digits;
-  return `${isNegative(value) ? '-' : ''}${trimmed.replace('.', ',')}`;
+  const [whole, fraction] = trimmed.split('.');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${isNegative(value) ? '-' : ''}${grouped}${fraction ? ',' + fraction : ''}`;
 }
 
 /** "17.54" → "%17,54", "-3.10" → "-%3,10". */

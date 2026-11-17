@@ -66,7 +66,7 @@ import { AllocationItem, Portfolio as PortfolioData, SHORT_TYPE_LABELS } from '.
               [style.flex]="seg.sharePct"
               data-testid="alloc-segment"
             >
-              {{ i === 0 ? shortLabels[seg.type] + ' ' : '' }}%{{ formatDecimal(seg.sharePct) }}
+              {{ i === 0 ? shortLabels[seg.type] + ' ' : '' }}{{ formatPct(seg.sharePct) }}
             </div>
           }
         </div>
@@ -399,7 +399,7 @@ export class Portfolio {
 
   /** Erişilebilir ad: "Varlık dağılımı: BIST %65, Altın %18". */
   protected allocationText(allocation: AllocationItem[]): string {
-    const parts = allocation.map((a) => `${SHORT_TYPE_LABELS[a.type]} %${formatDecimal(a.sharePct)}`);
+    const parts = allocation.map((a) => `${SHORT_TYPE_LABELS[a.type]} ${formatPct(a.sharePct)}`);
     return `Varlık dağılımı: ${parts.join(', ')}`;
   }
 

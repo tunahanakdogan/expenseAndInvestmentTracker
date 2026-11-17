@@ -214,10 +214,21 @@ const CURRENCY_SYMBOLS: Record<string, string> = { TRY: '₺', USD: '$', EUR: '�
       flex-direction: column;
       gap: 8px;
     }
+    /* Tek satır, yana kayar: Kaydet butonu telefonda ekranda kalsın (tek elle giriş). */
     .chips {
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       gap: 8px;
+      overflow-x: auto;
+      margin: 0 -20px;
+      padding: 0 20px 2px;
+      scrollbar-width: none;
+    }
+    .chips::-webkit-scrollbar {
+      display: none;
+    }
+    .chips > * {
+      flex: none;
     }
     .installments {
       appearance: none;
