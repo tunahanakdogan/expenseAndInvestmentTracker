@@ -62,4 +62,15 @@ describe('Settings', () => {
 
     expect(logout).toHaveBeenCalled();
   });
+
+  it('geri butonu .app-mobile-only taşır ve iki sütunlu kapsayıcı vardır', () => {
+    const back = el.querySelector('a[aria-label="Geri"]')!;
+    expect(back.classList.contains('app-mobile-only')).toBe(true);
+    const grid = el.querySelector('.grid')!;
+    expect(grid).toBeTruthy();
+    expect(grid.querySelector('.gorunum')).toBeTruthy();
+    expect(grid.querySelector('.hesaplar')).toBeTruthy();
+    expect(grid.querySelector('.kategoriler')).toBeTruthy();
+    expect(grid.querySelector('.oturum')).toBeTruthy();
+  });
 });

@@ -127,6 +127,18 @@ import { AuthService } from './auth.service';
     .app-primary {
       margin-top: 6px;
     }
+    @media (min-width: 840px) {
+      main {
+        max-width: 400px;
+        min-height: 0;
+        margin: max(48px, 12dvh) auto;
+        padding: 32px;
+        background: var(--app-surface);
+        border: 1px solid var(--app-border);
+        border-radius: 24px;
+        justify-content: flex-start;
+      }
+    }
   `,
 })
 export class Login {
